@@ -18,6 +18,8 @@ from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
 from load_LINEMOD import load_LINEMOD_data
 
+import open3d as o3d
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 np.random.seed(0)
@@ -128,6 +130,8 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
         k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
         all_ret[k] = torch.reshape(all_ret[k], k_sh)
 
+    all_ret['K'] = K
+    all_ret['c2w'] = c2w
     k_extract = ['rgb_map', 'disp_map', 'acc_map']
     ret_list = [all_ret[k] for k in k_extract]
     ret_dict = {k : all_ret[k] for k in all_ret if k not in k_extract}
@@ -146,14 +150,27 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
 
     rgbs = []
     disps = []
+    depths = []
+    pcds = []
+    Ks = []
+    c2ws = []
 
     t = time.time()
     for i, c2w in enumerate(tqdm(render_poses)):
         print(i, time.time() - t)
         t = time.time()
-        rgb, disp, acc, _ = render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
+        rgb, disp, acc, extras = render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
         rgbs.append(rgb.cpu().numpy())
         disps.append(disp.cpu().numpy())
+        if render_kwargs['retdepth']:
+            depths.append(extras['depth_map'].cpu().numpy())
+            points = extras['points'].cpu().numpy().reshape(-1, 3)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.colors = o3d.utility.Vector3dVector(rgbs[-1].reshape(-1, 3))
+            pcds.append(pcd)
+            Ks.append(extras['K'])
+            c2ws.append(extras['c2w'].cpu().numpy())
         if i==0:
             print(rgb.shape, disp.shape)
 
@@ -168,11 +185,26 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             filename = os.path.join(savedir, '{:03d}.png'.format(i))
             imageio.imwrite(filename, rgb8)
 
+            if render_kwargs['retdepth']:
+                depth8 = depths[-1]
+                depth_filename = os.path.join(savedir, 'depth_{:03d}.npy'.format(i))
+                np.save(depth_filename, depth8)
+                pcd_filename = os.path.join(savedir, '{:03d}.ply'.format(i))
+                o3d.io.write_point_cloud(pcd_filename, pcds[-1])
+
+                c2w8 = c2ws[-1]
+                c2w_filename = os.path.join(savedir, 'c2w_{:03d}.npy'.format(i))
+                np.save(c2w_filename, c2w8)
+                K8 = Ks[-1]
+                K_filename = os.path.join(savedir, 'K_{:03d}.npy'.format(i))
+                np.save(K_filename, K8)
 
     rgbs = np.stack(rgbs, 0)
     disps = np.stack(disps, 0)
+    if render_kwargs['retdepth']:
+        depths = np.stack(depths, 0)
 
-    return rgbs, disps
+    return rgbs, disps, depths
 
 
 def create_nerf(args):
@@ -244,6 +276,7 @@ def create_nerf(args):
         'use_viewdirs' : args.use_viewdirs,
         'white_bkgd' : args.white_bkgd,
         'raw_noise_std' : args.raw_noise_std,
+        'retdepth': False,
     }
 
     # NDC only good for LLFF-style forward facing data
@@ -255,6 +288,7 @@ def create_nerf(args):
     render_kwargs_test = {k : render_kwargs_train[k] for k in render_kwargs_train}
     render_kwargs_test['perturb'] = False
     render_kwargs_test['raw_noise_std'] = 0.
+    render_kwargs_test['retdepth'] = True
 
     return render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer
 
@@ -310,6 +344,7 @@ def render_rays(ray_batch,
                 network_query_fn,
                 N_samples,
                 retraw=False,
+                retdepth=True,
                 lindisp=False,
                 perturb=0.,
                 N_importance=0,
@@ -384,10 +419,11 @@ def render_rays(ray_batch,
 #     raw = run_network(pts)
     raw = network_query_fn(pts, viewdirs, network_fn)
     rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+    points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     if N_importance > 0:
 
-        rgb_map_0, disp_map_0, acc_map_0 = rgb_map, disp_map, acc_map
+        rgb_map_0, disp_map_0, acc_map_0, depth_map_0, points_0 = rgb_map, disp_map, acc_map, depth_map, points
 
         z_vals_mid = .5 * (z_vals[...,1:] + z_vals[...,:-1])
         z_samples = sample_pdf(z_vals_mid, weights[...,1:-1], N_importance, det=(perturb==0.), pytest=pytest)
@@ -401,15 +437,23 @@ def render_rays(ray_batch,
         raw = network_query_fn(pts, viewdirs, run_fn)
 
         rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+        points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map}
     if retraw:
         ret['raw'] = raw
+    if retdepth:
+        ret['depth_map'] = depth_map
+        ret['points'] = points
     if N_importance > 0:
         ret['rgb0'] = rgb_map_0
         ret['disp0'] = disp_map_0
         ret['acc0'] = acc_map_0
         ret['z_std'] = torch.std(z_samples, dim=-1, unbiased=False)  # [N_rays]
+
+        if retdepth:
+            ret['depth0'] = depth_map_0
+            ret['points0'] = points_0
 
     for k in ret:
         if (torch.isnan(ret[k]).any() or torch.isinf(ret[k]).any()) and DEBUG:
@@ -665,7 +709,7 @@ def train():
             os.makedirs(testsavedir, exist_ok=True)
             print('test poses shape', render_poses.shape)
 
-            rgbs, _ = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+            rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
             print('Done rendering', testsavedir)
             imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
@@ -802,7 +846,7 @@ def train():
         if i%args.i_video==0 and i > 0:
             # Turn on testing mode
             with torch.no_grad():
-                rgbs, disps = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test)
+                rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test)
             print('Done, saving', rgbs.shape, disps.shape)
             moviebase = os.path.join(basedir, expname, '{}_spiral_{:06d}_'.format(expname, i))
             imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
