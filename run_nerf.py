@@ -19,6 +19,7 @@ from load_blender import load_blender_data
 from load_LINEMOD import load_LINEMOD_data
 
 import open3d as o3d
+import wandb
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -561,9 +562,11 @@ def config_parser():
                         help='will take every 1/N images as LLFF test set, paper uses 8')
 
     # logging/saving options
+    parser.add_argument("--wand_en", action='store_true',  
+                        help='wandb logging enabled')
     parser.add_argument("--i_print",   type=int, default=100, 
                         help='frequency of console printout and metric loggin')
-    parser.add_argument("--i_img",     type=int, default=500, 
+    parser.add_argument("--i_img",     type=int, default=100, 
                         help='frequency of tensorboard image logging')
     parser.add_argument("--i_weights", type=int, default=10000, 
                         help='frequency of weight ckpt saving')
@@ -715,6 +718,11 @@ def train():
 
             return
 
+    if args.wand_en:
+            wandb.init(project="NeRF",
+                       entity="rrc_3d",
+                       name=expname)
+
     # Prepare raybatch tensor if batching random rays
     N_rand = args.N_rand
     use_batching = not args.no_batching
@@ -833,6 +841,12 @@ def train():
         #####           end            #####
 
         # Rest is logging
+        if args.wand_en:
+            wandb.log({
+                "Train Loss": loss.item(),
+                "Train PSNR": psnr.item()
+                })
+
         if i%args.i_weights==0:
             path = os.path.join(basedir, expname, '{:06d}.tar'.format(i))
             torch.save({
@@ -871,6 +885,37 @@ def train():
     
         if i%args.i_print==0:
             tqdm.write(f"[TRAIN] Iter: {i} Loss: {loss.item()}  PSNR: {psnr.item()}")
+
+            if i%args.i_img==0:
+                # Log a rendered validation view
+                img_i=np.random.choice(i_val)
+                target = images[img_i]
+                pose = poses[img_i, :3,:4]
+
+                with torch.no_grad():
+                    rgb, disp, acc, extras = render(H, W, K, chunk=args.chunk, c2w=pose,
+                                                        **render_kwargs_test)
+
+                img_loss = img2mse(rgb, torch.tensor(target))
+                loss = img_loss
+                psnr = mse2psnr(img_loss)
+
+                if 'rgb0' in extras:
+                    img_loss0 = img2mse(extras['rgb0'], torch.tensor(target))
+                    loss = loss + img_loss0
+                    psnr0 = mse2psnr(img_loss0)
+
+                tqdm.write(f"[TRAIN] Iter: {i} Validation Loss: {loss.item()}  Validation PSNR: {psnr.item()}")
+                if args.wand_en:
+                    wandb.log({
+                        "Validation Loss": loss.item(),
+                        "Validation PSNR": psnr.item(),
+                        "Image": [wandb.Image(rgb.cpu().numpy())],
+                        "Disparity": [wandb.Image(disp.cpu().numpy())],
+                        "Opacity": [wandb.Image(acc.cpu().numpy())],
+                        "Depth": [wandb.Image(extras['depth_map'].cpu().numpy())],
+                        })
+
         """
             print(expname, i, psnr.numpy(), loss.numpy(), global_step.numpy())
             print('iter time {:.05f}'.format(dt))

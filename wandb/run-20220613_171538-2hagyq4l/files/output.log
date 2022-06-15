@@ -1,0 +1,30 @@
+Begin
+TRAIN views are [ 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+ 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47
+ 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71
+ 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95
+ 96 97 98 99]
+TEST views are [113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130
+ 131 132 133 134 135 136 137]
+VAL views are [100 101 102 103 104 105 106 107 108 109 110 111 112]
+
+
+
+
+
+
+  0%|                                     | 96/200000 [00:13<7:49:25,  7.10it/s]
+[TRAIN] Iter: 100 Loss: 0.15628108382225037  PSNR: 12.402728080749512
+101 (400, 400, 3) tensor([[-9.0544e-01, -3.3287e-01,  2.6338e-01,  1.0617e+00],
+        [ 4.2447e-01, -7.1006e-01,  5.6183e-01,  2.2648e+00],
+  0%|                                     | 99/200000 [00:14<7:55:03,  7.01it/s]
+Traceback (most recent call last):
+  File "/home2/shaurya.dewan/NOCs/nerf-pytorch/run_nerf.py", line 966, in <module>
+    train()
+  File "/home2/shaurya.dewan/NOCs/nerf-pytorch/run_nerf.py", line 896, in train
+    rgb, disp, acc, extras = render(H, W, focal, chunk=args.chunk, c2w=pose,
+  File "/home2/shaurya.dewan/NOCs/nerf-pytorch/run_nerf.py", line 100, in render
+    rays_o, rays_d = get_rays(H, W, K, c2w)
+  File "/home2/shaurya.dewan/NOCs/nerf-pytorch/run_nerf_helpers.py", line 157, in get_rays
+    dirs = torch.stack([(i-K[0][2])/K[0][0], -(j-K[1][2])/K[1][1], -torch.ones_like(i)], -1)
+IndexError: invalid index to scalar variable.

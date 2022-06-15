@@ -1,0 +1,584 @@
+2022-06-13 17:15:40,792 INFO    MainThread:12013 [internal.py:wandb_internal():90] W&B internal server running at pid: 12013, started at: 2022-06-13 17:15:40.791400
+2022-06-13 17:15:40,797 INFO    WriterThread:12013 [datastore.py:open_for_write():75] open: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/run-2hagyq4l.wandb
+2022-06-13 17:15:40,801 DEBUG   SenderThread:12013 [sender.py:send():235] send: header
+2022-06-13 17:15:40,801 DEBUG   SenderThread:12013 [sender.py:send():235] send: run
+2022-06-13 17:15:41,171 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: check_version
+2022-06-13 17:15:41,173 INFO    SenderThread:12013 [dir_watcher.py:__init__():205] watching files in: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files
+2022-06-13 17:15:41,173 INFO    SenderThread:12013 [sender.py:_start_run_threads():812] run started: 2hagyq4l with start time 1655120738
+2022-06-13 17:15:41,174 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:41,175 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:41,175 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: check_version
+2022-06-13 17:15:41,350 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: run_start
+2022-06-13 17:15:41,366 DEBUG   HandlerThread:12013 [meta.py:__init__():35] meta init
+2022-06-13 17:15:41,366 DEBUG   HandlerThread:12013 [meta.py:__init__():49] meta init done
+2022-06-13 17:15:41,366 DEBUG   HandlerThread:12013 [meta.py:probe():209] probe
+2022-06-13 17:15:41,373 DEBUG   HandlerThread:12013 [meta.py:_setup_git():199] setup git
+2022-06-13 17:15:41,402 DEBUG   HandlerThread:12013 [meta.py:_setup_git():206] setup git done
+2022-06-13 17:15:41,402 DEBUG   HandlerThread:12013 [meta.py:_save_pip():53] save pip
+2022-06-13 17:15:41,404 DEBUG   HandlerThread:12013 [meta.py:_save_pip():67] save pip done
+2022-06-13 17:15:41,404 DEBUG   HandlerThread:12013 [meta.py:_save_conda():74] save conda
+2022-06-13 17:15:42,178 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_created():256] file/dir created: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:42,178 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_created():256] file/dir created: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/requirements.txt
+2022-06-13 17:15:42,179 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_created():256] file/dir created: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/conda-environment.yaml
+2022-06-13 17:15:43,692 DEBUG   HandlerThread:12013 [meta.py:_save_conda():84] save conda done
+2022-06-13 17:15:43,693 DEBUG   HandlerThread:12013 [meta.py:probe():247] probe done
+2022-06-13 17:15:43,773 DEBUG   SenderThread:12013 [sender.py:send():235] send: files
+2022-06-13 17:15:43,773 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-metadata.json with policy now
+2022-06-13 17:15:43,783 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: stop_status
+2022-06-13 17:15:43,783 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: stop_status
+2022-06-13 17:15:43,968 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,127 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,150 DEBUG   SenderThread:12013 [sender.py:send():235] send: telemetry
+2022-06-13 17:15:44,150 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,151 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,152 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,153 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,153 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,155 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,181 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:44,181 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/conda-environment.yaml
+2022-06-13 17:15:44,182 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_created():256] file/dir created: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:44,182 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_created():256] file/dir created: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-metadata.json
+2022-06-13 17:15:44,269 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,270 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,271 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,273 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,408 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,409 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,409 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,411 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,549 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,550 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,550 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,552 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,689 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,690 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,691 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,692 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,706 INFO    Thread-11 :12013 [upload_job.py:push():132] Uploaded file /tmp/tmpzie8ko96wandb/7vuqddfi-wandb-metadata.json
+2022-06-13 17:15:44,830 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,831 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,831 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,833 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:44,970 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:44,970 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:44,970 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:44,972 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,108 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,109 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,110 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,112 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,182 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:45,249 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,249 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,250 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,254 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,390 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,390 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,391 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,392 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,529 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,531 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,531 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,532 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,668 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,669 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,669 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,670 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,809 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,810 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,810 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,811 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:45,949 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:45,950 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:45,950 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:45,951 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,089 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,089 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,090 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,091 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,183 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:46,184 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:46,228 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,229 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,229 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,231 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,368 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,369 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,369 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,370 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,509 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,509 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,510 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,511 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,649 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,650 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,650 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,651 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,790 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,791 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,791 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,793 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:46,931 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:46,932 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:46,933 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:46,934 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,073 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,074 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,074 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,076 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,185 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:47,213 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,214 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,215 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,216 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,354 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,355 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,356 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,362 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,496 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,497 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,497 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,499 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,637 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,638 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,638 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,640 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,778 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,779 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,779 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,781 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:47,918 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:47,919 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:47,919 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:47,921 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,057 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,058 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,058 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,060 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,186 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:48,186 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:48,196 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,197 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,198 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,199 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,337 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,338 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,338 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,339 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,476 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,477 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,477 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,479 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,616 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,617 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,618 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,619 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,757 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,758 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,758 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,759 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:48,897 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:48,898 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:48,899 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:48,900 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,038 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,039 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,040 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,041 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,179 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,180 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,181 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,182 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,187 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:49,320 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,321 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,321 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,322 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,459 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,459 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,459 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,464 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,599 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,600 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,600 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,602 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,739 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,740 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,740 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,742 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:49,880 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:49,881 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:49,881 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:49,883 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,021 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,021 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,021 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,022 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,160 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,161 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,161 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,163 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,188 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:50,188 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:50,301 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,302 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,302 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,304 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,443 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,444 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,445 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,446 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,584 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,586 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,586 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,588 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,723 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,724 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,725 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,726 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:50,863 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:50,864 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:50,865 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:50,866 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,004 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,005 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,006 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,008 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,148 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,148 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,149 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,150 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,189 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:51,288 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,289 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,289 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,291 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,428 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,429 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,429 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,431 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,568 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,569 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,569 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,574 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,711 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,712 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,713 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,714 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,851 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,852 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,853 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,854 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:51,991 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:51,992 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:51,992 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:51,994 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,132 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,132 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,133 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,134 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,190 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:52,190 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:52,272 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,273 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,273 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,274 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,415 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,415 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,416 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,418 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,555 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,556 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,556 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,558 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,696 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,697 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,697 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,698 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,837 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,838 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,838 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,839 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:52,978 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:52,979 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:52,979 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:52,980 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,120 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,121 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,121 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,123 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,192 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:53,261 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,262 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,262 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,264 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,403 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,403 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,404 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,405 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,544 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,544 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,545 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,546 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,685 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,686 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,686 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,691 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,828 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,829 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,829 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,831 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:53,969 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:53,970 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:53,970 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:53,971 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,109 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,110 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,110 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,112 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,193 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:54,193 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:54,249 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,250 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,251 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,252 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,388 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,389 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,390 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,391 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,529 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,530 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,530 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,532 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,669 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,670 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,671 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,672 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,809 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,810 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,810 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,812 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:54,950 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:54,951 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:54,952 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:54,953 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,091 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,092 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,092 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,093 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,194 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:55,232 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,233 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,233 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,234 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,372 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,373 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,374 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,375 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,513 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,514 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,515 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,517 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,654 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,655 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,656 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,657 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,795 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,796 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,797 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,801 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:55,935 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:55,936 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:55,937 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:55,938 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,074 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,075 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,076 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,077 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,195 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:56,195 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:15:56,214 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,215 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,215 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,217 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,355 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,356 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,356 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,358 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,497 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,498 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,498 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,500 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,637 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,638 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,638 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,640 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,779 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,780 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,780 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,782 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:56,921 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:56,922 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:56,922 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:56,924 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,062 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,063 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,063 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,065 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,196 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:57,203 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,204 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,205 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,206 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,343 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,344 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,344 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,346 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,483 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,484 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,485 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,486 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,624 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,625 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,625 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,627 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,766 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,767 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,767 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,769 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,906 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: partial_history
+2022-06-13 17:15:57,907 DEBUG   SenderThread:12013 [sender.py:send():235] send: history
+2022-06-13 17:15:57,907 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:15:57,909 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:15:57,919 DEBUG   SenderThread:12013 [sender.py:send():235] send: telemetry
+2022-06-13 17:15:58,197 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:15:58,197 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:16:00,199 INFO    Thread-7  :12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:16:00,374 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:00,375 DEBUG   SenderThread:12013 [sender.py:send():235] send: exit
+2022-06-13 17:16:00,375 INFO    SenderThread:12013 [sender.py:send_exit():371] handling exit code: 1
+2022-06-13 17:16:00,375 INFO    SenderThread:12013 [sender.py:send_exit():373] handling runtime: 19
+2022-06-13 17:16:00,377 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:16:00,378 INFO    SenderThread:12013 [sender.py:send_exit():379] send defer
+2022-06-13 17:16:00,378 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:00,379 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,379 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 0
+2022-06-13 17:16:00,379 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,380 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 0
+2022-06-13 17:16:00,380 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 1
+2022-06-13 17:16:00,380 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,380 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 1
+2022-06-13 17:16:00,480 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,480 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 1
+2022-06-13 17:16:00,481 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:00,481 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 2
+2022-06-13 17:16:00,482 DEBUG   SenderThread:12013 [sender.py:send():235] send: stats
+2022-06-13 17:16:00,483 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:00,483 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,483 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 2
+2022-06-13 17:16:00,484 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,484 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 2
+2022-06-13 17:16:00,484 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 3
+2022-06-13 17:16:00,485 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,485 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 3
+2022-06-13 17:16:00,485 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,485 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 3
+2022-06-13 17:16:00,485 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 4
+2022-06-13 17:16:00,486 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,486 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 4
+2022-06-13 17:16:00,487 DEBUG   SenderThread:12013 [sender.py:send():235] send: summary
+2022-06-13 17:16:00,489 INFO    SenderThread:12013 [sender.py:_save_file():949] saving file wandb-summary.json with policy end
+2022-06-13 17:16:00,489 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,490 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 4
+2022-06-13 17:16:00,490 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 5
+2022-06-13 17:16:00,490 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,490 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 5
+2022-06-13 17:16:00,491 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,491 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 5
+2022-06-13 17:16:00,585 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:00,838 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 6
+2022-06-13 17:16:00,839 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:00,840 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:00,840 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 6
+2022-06-13 17:16:00,840 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:00,840 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 6
+2022-06-13 17:16:00,840 INFO    SenderThread:12013 [dir_watcher.py:finish():336] shutting down directory watcher
+2022-06-13 17:16:00,941 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,201 INFO    SenderThread:12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/config.yaml
+2022-06-13 17:16:01,201 INFO    SenderThread:12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:16:01,202 INFO    SenderThread:12013 [dir_watcher.py:_on_file_modified():269] file/dir modified: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:16:01,202 INFO    SenderThread:12013 [dir_watcher.py:finish():366] scan: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files
+2022-06-13 17:16:01,202 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json wandb-summary.json
+2022-06-13 17:16:01,203 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/conda-environment.yaml conda-environment.yaml
+2022-06-13 17:16:01,203 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-metadata.json wandb-metadata.json
+2022-06-13 17:16:01,216 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/requirements.txt requirements.txt
+2022-06-13 17:16:01,217 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/config.yaml config.yaml
+2022-06-13 17:16:01,218 INFO    SenderThread:12013 [dir_watcher.py:finish():380] scan save: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log output.log
+2022-06-13 17:16:01,225 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 7
+2022-06-13 17:16:01,230 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,239 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:01,239 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 7
+2022-06-13 17:16:01,240 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:01,240 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 7
+2022-06-13 17:16:01,241 INFO    SenderThread:12013 [file_pusher.py:finish():145] shutting down file pusher
+2022-06-13 17:16:01,332 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,332 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,434 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,435 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,536 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,537 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,639 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,639 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,741 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,741 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,843 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,843 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:01,945 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:01,946 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,047 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:02,048 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,149 INFO    Thread-12 :12013 [upload_job.py:push():132] Uploaded file /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/wandb-summary.json
+2022-06-13 17:16:02,150 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:02,153 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,163 INFO    Thread-16 :12013 [upload_job.py:push():132] Uploaded file /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/output.log
+2022-06-13 17:16:02,164 INFO    Thread-15 :12013 [upload_job.py:push():132] Uploaded file /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/config.yaml
+2022-06-13 17:16:02,230 INFO    Thread-13 :12013 [upload_job.py:push():132] Uploaded file /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/conda-environment.yaml
+2022-06-13 17:16:02,255 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:02,255 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,278 INFO    Thread-14 :12013 [upload_job.py:push():132] Uploaded file /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/files/requirements.txt
+2022-06-13 17:16:02,357 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:02,357 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,459 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:02,459 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:02,479 INFO    Thread-6  :12013 [sender.py:transition_state():392] send defer: 8
+2022-06-13 17:16:02,479 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:02,479 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 8
+2022-06-13 17:16:02,480 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:02,480 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 8
+2022-06-13 17:16:02,561 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:03,040 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 9
+2022-06-13 17:16:03,040 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:03,041 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:03,042 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 9
+2022-06-13 17:16:03,042 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:03,042 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 9
+2022-06-13 17:16:03,042 INFO    SenderThread:12013 [sender.py:transition_state():392] send defer: 10
+2022-06-13 17:16:03,043 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: defer
+2022-06-13 17:16:03,043 INFO    HandlerThread:12013 [handler.py:handle_request_defer():164] handle defer: 10
+2022-06-13 17:16:03,044 DEBUG   SenderThread:12013 [sender.py:send():235] send: final
+2022-06-13 17:16:03,044 DEBUG   SenderThread:12013 [sender.py:send():235] send: footer
+2022-06-13 17:16:03,044 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: defer
+2022-06-13 17:16:03,044 INFO    SenderThread:12013 [sender.py:send_request_defer():388] handle sender defer: 10
+2022-06-13 17:16:03,143 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: poll_exit
+2022-06-13 17:16:03,143 DEBUG   SenderThread:12013 [sender.py:send_request():249] send_request: poll_exit
+2022-06-13 17:16:03,143 INFO    SenderThread:12013 [file_pusher.py:join():150] waiting for file pusher
+2022-06-13 17:16:03,968 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: sampled_history
+2022-06-13 17:16:03,971 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: get_summary
+2022-06-13 17:16:03,972 DEBUG   HandlerThread:12013 [handler.py:handle_request():141] handle_request: shutdown
+2022-06-13 17:16:03,973 INFO    HandlerThread:12013 [handler.py:finish():806] shutting down handler
+2022-06-13 17:16:04,044 INFO    WriterThread:12013 [datastore.py:close():279] close: /home2/shaurya.dewan/NOCs/nerf-pytorch/wandb/run-20220613_171538-2hagyq4l/run-2hagyq4l.wandb
+2022-06-13 17:16:04,867 INFO    SenderThread:12013 [sender.py:finish():1111] shutting down sender
+2022-06-13 17:16:04,867 INFO    SenderThread:12013 [file_pusher.py:finish():145] shutting down file pusher
+2022-06-13 17:16:04,867 INFO    SenderThread:12013 [file_pusher.py:join():150] waiting for file pusher
+2022-06-13 17:16:04,870 INFO    MainThread:12013 [internal.py:handle_exit():80] Internal process exited
