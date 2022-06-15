@@ -1,20 +1,24 @@
-expname = blender_paper_lego
+expname = non_random_full_image_training_100_epochs_res_32
 basedir = ./logs
 datadir = ./data/nerf_synthetic/lego
 dataset_type = blender
+render_only = True
 
 no_batching = True
-ft_path = ./logs/blender_paper_lego/010000.tar
+ft_path = ./logs/non_random_full_image_training_100_epochs_res_32/010000.tar
 
 use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
 N_samples = 64
-N_importance = 128
-N_rand = 1024
+N_importance = 64
+N_rand = 0
 
 precrop_iters = 0
 precrop_frac = 0.5
+iters = 10000
 
-half_res = True
+res = 0.04
+wand_en = False
+

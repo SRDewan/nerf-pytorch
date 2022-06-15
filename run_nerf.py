@@ -532,6 +532,8 @@ def config_parser():
                         help='number of steps to train on central crops')
     parser.add_argument("--precrop_frac", type=float,
                         default=.5, help='fraction of img taken for central crops') 
+    parser.add_argument("--iters", type=int, default=10000,
+                        help='number of steps to train for')
 
     # dataset options
     parser.add_argument("--dataset_type", type=str, default='llff', 
@@ -546,8 +548,8 @@ def config_parser():
     ## blender flags
     parser.add_argument("--white_bkgd", action='store_true', 
                         help='set to render synthetic data on a white bkgd (always use for dvoxels)')
-    parser.add_argument("--half_res", action='store_true', 
-                        help='load blender synthetic data at 400x400 instead of 800x800')
+    parser.add_argument("--res", type=float, default=1.0,
+                        help='load blender synthetic data at given resolution instead of 800x800')
 
     ## llff flags
     parser.add_argument("--factor", type=int, default=8, 
@@ -614,7 +616,7 @@ def train():
         print('NEAR FAR', near, far)
 
     elif args.dataset_type == 'blender':
-        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
+        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.res, args.testskip)
         print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
@@ -736,8 +738,10 @@ def train():
         rays_rgb = np.stack([rays_rgb[i] for i in i_train], 0) # train images only
         rays_rgb = np.reshape(rays_rgb, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
         rays_rgb = rays_rgb.astype(np.float32)
-        print('shuffle rays')
-        np.random.shuffle(rays_rgb)
+
+        if N_rand:
+            print('shuffle rays')
+            np.random.shuffle(rays_rgb)
 
         print('done')
         i_batch = 0
@@ -750,7 +754,7 @@ def train():
         rays_rgb = torch.Tensor(rays_rgb).to(device)
 
 
-    N_iters = 200000 + 1
+    N_iters = args.iters + 1
     print('Begin')
     print('TRAIN views are', i_train)
     print('TEST views are', i_test)
@@ -759,6 +763,9 @@ def train():
     # Summary writers
     # writer = SummaryWriter(os.path.join(basedir, 'summaries', expname))
     
+    if not N_rand:
+        N_rand = H * W
+
     start = start + 1
     for i in trange(start, N_iters):
         time0 = time.time()
@@ -772,17 +779,21 @@ def train():
 
             i_batch += N_rand
             if i_batch >= rays_rgb.shape[0]:
-                print("Shuffle data after an epoch!")
-                rand_idx = torch.randperm(rays_rgb.shape[0])
-                rays_rgb = rays_rgb[rand_idx]
+                # print("Shuffle data after an epoch!")
+                # rand_idx = torch.randperm(rays_rgb.shape[0])
+                # rays_rgb = rays_rgb[rand_idx]
                 i_batch = 0
 
         else:
             # Random from one image
-            img_i = np.random.choice(i_train)
+            # img_i = np.random.choice(i_train)
+            img_i = i % len(i_train)
             target = images[img_i]
             target = torch.Tensor(target).to(device)
             pose = poses[img_i, :3,:4]
+
+            if not (i % len(i_train)) and (i / len(i_train) > 0):
+                print("Completed %d epochs!" % (i // len(i_train)))
 
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)

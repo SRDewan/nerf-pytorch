@@ -1,0 +1,27 @@
+{
+    "os": "Linux-4.15.0-180-generic-x86_64-with-glibc2.27",
+    "python": "3.9.12",
+    "heartbeatAt": "2022-06-15T11:23:26.478273",
+    "startedAt": "2022-06-15T11:23:23.490932",
+    "docker": null,
+    "gpu": "NVIDIA GeForce GTX 1080 Ti",
+    "gpu_count": 2,
+    "cpu_count": 40,
+    "cuda": null,
+    "args": [
+        "--config",
+        "configs/lego.txt"
+    ],
+    "state": "running",
+    "program": "/home2/shaurya.dewan/NOCs/nerf-pytorch/run_nerf.py",
+    "codePath": "run_nerf.py",
+    "git": {
+        "remote": "https://github.com/SRDewan/nerf-pytorch.git",
+        "commit": "dc60cf87c03296db9d3d296347cb754543a244e4"
+    },
+    "email": "shaurya.dewan@students.iiit.ac.in",
+    "root": "/home2/shaurya.dewan/NOCs/nerf-pytorch",
+    "host": "gnode007",
+    "username": "shaurya.dewan",
+    "executable": "/home2/shaurya.dewan/miniconda3/envs/nerf/bin/python"
+}
