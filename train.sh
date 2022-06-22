@@ -15,4 +15,4 @@ module load cuda/10.2
 cd /home2/shaurya.dewan/NOCs/nerf-pytorch
 
 CUDA_VISIBLE_DEVICES=0,1
-python run_nerf.py --config configs/lego.txt
+python run_nerf.py --config configs/local_blender.txt

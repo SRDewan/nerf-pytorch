@@ -16,12 +16,15 @@ from run_nerf_helpers import *
 from load_llff import load_llff_data
 from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
+from load_local_blender import load_local_blender_data
 from load_LINEMOD import load_LINEMOD_data
 
 import open3d as o3d
 import wandb
+import gc
 
-
+gc.collect()
+torch.cuda.empty_cache()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 np.random.seed(0)
 DEBUG = False
@@ -536,8 +539,8 @@ def config_parser():
                         help='number of steps to train for')
 
     # dataset options
-    parser.add_argument("--dataset_type", type=str, default='llff', 
-                        help='options: llff / blender / deepvoxels')
+    parser.add_argument("--dataset_type", type=str, default='blender', 
+                        help='options: llff / blender / local_blender / deepvoxels')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
 
@@ -622,6 +625,21 @@ def train():
 
         near = 2.
         far = 6.
+
+        if args.white_bkgd:
+            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+        else:
+            images = images[...,:3]
+
+    elif args.dataset_type == 'local_blender':
+        images, poses, render_poses, meta, i_split = load_local_blender_data(args.datadir, args.res, args.testskip)
+        K = meta['intrinsic_mat']
+        hwf = [meta['height'], meta['width'], meta['fx']]
+        print('Loaded local blender', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
+        i_train, i_val, i_test = i_split
+
+        near = 0.
+        far = 4.
 
         if args.white_bkgd:
             images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
@@ -970,6 +988,7 @@ def train():
         """
 
         global_step += 1
+        # del batch, batch_rays, target_s, img_loss, rgb, disp, acc, extras
 
 
 if __name__=='__main__':
