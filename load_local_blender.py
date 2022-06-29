@@ -9,6 +9,8 @@ import glob
 import random
 
 
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
+
 trans_t = lambda t : torch.Tensor([
     [1,0,0,0],
     [0,1,0,0],
@@ -133,10 +135,12 @@ def load_dataset(directory):
         pose_np     = pose_dict_to_numpy(camera_pose)
         pose        = pose_2_matrix(torch.from_numpy(pose_np))
         pose = pose.cpu().detach().numpy()
-        #print(pose)
+        # print(pose)
         #Got the scale below from NOCS function above
-        pose[:3, 3] = pose[:3, 3] * 0.16072596331333025
-        #print(pose)
+        pose[:3, 3] = pose[:3, 3]
+        # * 0.16072596331333025
+        # pose = np.linalg.inv(pose)
+        # print(pose)
 
         imgs[image_id] = {
             "camera_id": image_id,
@@ -148,9 +152,9 @@ def load_dataset(directory):
             "pose": pose
         }
 
-        imgs[image_id]["mask_path"] = mask_dir + "frame_" + image_current.split("_")[2] + "_Mask_00.png"
-        imgs[image_id]["segmentation_meta"] = mask_dir + "frame_" + image_current.split("_")[2] + "_Mask_00.png"
-        imgs[image_id]["depth_path"] = depth_dir + "frame_" + image_current.split("_")[2] + "_Depth_00.exr"
+        imgs[image_id]["mask_path"] = mask_dir + "frame_" + image_current.split("_")[-3] + "_Mask_00.png"
+        imgs[image_id]["segmentation_meta"] = mask_dir + "frame_" + image_current.split("_")[-3] + "_Mask_00.png"
+        imgs[image_id]["depth_path"] = depth_dir + "frame_" + image_current.split("_")[-3] + "_Depth_00.exr"
 
     cams = {0: {'width': 640, 'height': 480, 'fx': 888.8889, 'fy': 1000.0000, 'px': 320.0000, 'py': 240.0000}}
     #exit()
@@ -191,6 +195,7 @@ def load_local_blender_data(basedir, res=1, skip=1):
     imgs, cams = main_loader(basedir, res)
     all_imgs = []
     all_poses = []
+    all_depths = []
 
     for index in range(len(imgs)):
         # n_image = cv2.imread(imgs[index]["path"])
@@ -206,9 +211,17 @@ def load_local_blender_data(basedir, res=1, skip=1):
         n_pose = imgs[index]["pose"]
         # n_pose = torch.from_numpy(n_pose)
         all_poses.append(n_pose)
+        
+        n_depth = np.array(cv2.imread(imgs[index]["depth_path"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH))[:, :, 0]
+        n_depth = np.where(n_depth == np.inf, 0, n_depth)
+        # n_depth = imageio.imread(imgs[index]["depth_path"])
+        # n_depth = n_depth.reshape(n_depth.shape[0], n_depth.shape[1], 1)
+        n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
+        all_depths.append(n_depth)
     
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
+    all_depths = np.array(all_depths).astype(np.float32)
 
     indices = np.arange(len(all_imgs))
     i_train = np.random.choice(indices, round(0.8 * len(all_imgs)), replace=False)

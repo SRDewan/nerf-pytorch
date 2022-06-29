@@ -18,6 +18,7 @@ from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
 from load_local_blender import load_local_blender_data
 from load_LINEMOD import load_LINEMOD_data
+from load_draco import load_draco_data
 
 import open3d as o3d
 import wandb
@@ -540,7 +541,7 @@ def config_parser():
 
     # dataset options
     parser.add_argument("--dataset_type", type=str, default='blender', 
-                        help='options: llff / blender / local_blender / deepvoxels')
+                        help='options: llff / blender / local_blender / deepvoxels / draco')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
 
@@ -639,7 +640,7 @@ def train():
         i_train, i_val, i_test = i_split
 
         near = 0.
-        far = 4.
+        far = 4.1
 
         if args.white_bkgd:
             images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
@@ -669,6 +670,21 @@ def train():
         hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
         near = hemi_R-1.
         far = hemi_R+1.
+
+    elif args.dataset_type == 'draco':
+        images, poses, render_poses, meta, i_split = load_draco_data(args.datadir, args.res, args.testskip)
+        K = meta['intrinsic_mat']
+        hwf = [meta['height'], meta['width'], meta['fx']]
+        print('Loaded draco', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
+        i_train, i_val, i_test = i_split
+
+        near = 0.
+        far = 5.5
+
+        if args.white_bkgd:
+            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+        else:
+            images = images[...,:3]
 
     else:
         print('Unknown dataset type', args.dataset_type, 'exiting')
@@ -835,6 +851,7 @@ def train():
                 rays_o = rays_o[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 rays_d = rays_d[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 batch_rays = torch.stack([rays_o, rays_d], 0)
+                # target_s = target.reshape((H * W, 3))
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
         #####  Core optimization loop  #####
@@ -870,10 +887,15 @@ def train():
         #####           end            #####
 
         # Rest is logging
+        # print("Training rgb info: ", type(rgb), rgb.shape, target_s.shape)
+        # print(np.unique(rgb.detach().cpu().numpy(), return_counts=True))
+        # print(np.unique(target_s.detach().cpu().numpy(), return_counts=True))
+        # tqdm.write(f"Info: {rgb.shape}, {target_s.shape}, \nUnique GT Values: {np.unique(target_s.detach().cpu().numpy(), return_counts=True)} \nUnique Rendered Values: {np.unique(rgb.detach().cpu().numpy(), return_counts=True)}")
         if args.wand_en:
             wandb.log({
                 "Train Loss": loss.item(),
-                "Train PSNR": psnr.item()
+                "Train PSNR": psnr.item(),
+                "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((32, 32, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((32, 32, 3)))]
                 })
 
         if i%args.i_weights==0:
@@ -939,7 +961,7 @@ def train():
                     wandb.log({
                         "Validation Loss": loss.item(),
                         "Validation PSNR": psnr.item(),
-                        "Image": [wandb.Image(rgb.cpu().numpy())],
+                        "Rendered vs GT Image": [wandb.Image(rgb.cpu().numpy().reshape((H, W, 3))), wandb.Image(target)],
                         "Disparity": [wandb.Image(disp.cpu().numpy())],
                         "Opacity": [wandb.Image(acc.cpu().numpy())],
                         "Depth": [wandb.Image(extras['depth_map'].cpu().numpy())],
