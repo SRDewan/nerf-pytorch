@@ -177,8 +177,8 @@ def main_loader(root_dir, scale):
     cams[0]["width"] = round(w * scale)
 
     cams[0]["intrinsic_mat"] = np.array([[fx, 0, px],
-                              [0, fy, py],
-                              [0, 0, 1]])
+                              [0, -fy, py],
+                              [0, 0, -1]])
 
     for it in range(len(imgs)):
         #print(imgs[it]["path"])
@@ -232,6 +232,6 @@ def load_local_blender_data(basedir, res=1, skip=1):
 
     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
 
-    return all_imgs, all_poses, render_poses, cams[0], i_split
+    return all_imgs, all_poses, render_poses, cams[0], all_depths, i_split
 
 

@@ -108,8 +108,8 @@ def construct_camera_matrix(focal_x, focal_y, c_x, c_y, res):
     '''
 
     K = np.array([[focal_x * res, 0, c_x * res],
-                  [0, focal_y * res, c_y * res],
-                  [0, 0, 1]])
+                  [0, -focal_y * res, c_y * res],
+                  [0, 0, -1]])
 
     return K
 
@@ -175,6 +175,7 @@ def split_image(view_image, view_mask, pose_params, view_depth, num_views = 3):
         pose_np = pose_dict_to_numpy(pose_dict)
         pose = pose_2_matrix(torch.from_numpy(pose_np))
         pose = pose.cpu().detach().numpy()
+        # pose = np.linalg.inv(pose)
 
         image = view_image[ :, i * width:(i + 1) * width]
         # .transpose((2, 0, 1))
@@ -262,6 +263,6 @@ def load_draco_data(basedir, res = 1, skip = 1):
             "fx": 888.88 * res
         }
 
-    return all_imgs, all_poses, render_poses, meta, i_split
+    return all_imgs, all_poses, render_poses, meta, all_depths, i_split
 
 

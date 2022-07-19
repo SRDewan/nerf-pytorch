@@ -1,4 +1,4 @@
-expname = draco_precrop_random_100_epochs_res_32
+expname = draco_32_samples_lr_0001_precrop_random_10_1000_epochs_res_64
 basedir = ./logs
 datadir = /home2/shaurya.dewan/data/DRACO20K_cars_small/1198255e3d20d2f323f3ca54768fe2ee/
 dataset_type = draco 
@@ -9,15 +9,17 @@ use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
-N_samples = 64 
+N_samples = 32
 N_importance = 64 
-N_rand = 1024
+N_rand = 4096
+lrate = 0.0001
 
-precrop_iters = 200
+precrop_iters = 1000
 precrop_frac = 0.5
-iters = 10000
+iters = 100000
 
-res = 0.2
+res = 1
 wand_en = True
 i_print = 100
 i_img = 100
+i_weights = 1000

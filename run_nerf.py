@@ -23,6 +23,12 @@ from load_draco import load_draco_data
 import open3d as o3d
 import wandb
 import gc
+import copy
+
+import cv2
+from PIL import Image
+import mcubes
+from plyfile import PlyData, PlyElement
 
 gc.collect()
 torch.cuda.empty_cache()
@@ -75,7 +81,7 @@ def batchify_rays(rays_flat, chunk=1024*32, **kwargs):
 
 def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
                   near=0., far=1.,
-                  use_viewdirs=False, c2w_staticcam=None,
+                  use_viewdirs=False, c2w_staticcam=None, gt_image=None, gt_depth=None,
                   **kwargs):
     """Render rays
     Args:
@@ -101,6 +107,7 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
     """
     if c2w is not None:
         # special case to render full image
+        c2w = torch.tensor(c2w).to(device)
         rays_o, rays_d = get_rays(H, W, K, c2w)
     else:
         # use provided ray batch
@@ -130,10 +137,25 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
         rays = torch.cat([rays, viewdirs], -1)
 
     # Render and reshape
-    all_ret = batchify_rays(rays, chunk, **kwargs)
-    for k in all_ret:
-        k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
-        all_ret[k] = torch.reshape(all_ret[k], k_sh)
+    if gt_depth is not None:
+        gt_depth = torch.tensor(gt_depth).to(device).reshape((-1, 1))
+        points = rays_o + gt_depth * rays_d
+
+        all_ret = {}
+        all_ret['rgb_map'] = torch.tensor(gt_image).to(device)
+        all_ret['disp_map'] = torch.tensor([]).to(device)
+        all_ret['acc_map'] = torch.tensor([]).to(device)
+        all_ret['weights'] = torch.tensor([]).to(device)
+        all_ret['sigma_map'] = torch.tensor([]).to(device)
+        all_ret['sample_points'] = torch.tensor([]).to(device)
+        all_ret['depth_map'] = gt_depth
+        all_ret['points'] = points
+
+    else:
+        all_ret = batchify_rays(rays, chunk, **kwargs)
+        for k in all_ret:
+            k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
+            all_ret[k] = torch.reshape(all_ret[k], k_sh)
 
     all_ret['K'] = K
     all_ret['c2w'] = c2w
@@ -143,7 +165,7 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
     return ret_list + [ret_dict]
 
 
-def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0):
+def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None):
 
     H, W, focal = hwf
 
@@ -159,21 +181,33 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
     pcds = []
     Ks = []
     c2ws = []
+    weights = []
+    sigmas = []
+    sample_points = []
 
     t = time.time()
     for i, c2w in enumerate(tqdm(render_poses)):
         print(i, time.time() - t)
         t = time.time()
-        rgb, disp, acc, extras = render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
+        if gt_depths is not None:
+            rgb, disp, acc, extras = render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], gt_image=gt_imgs[i], gt_depth=gt_depths[i], **render_kwargs)
+        else:
+            rgb, disp, acc, extras = render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
         rgbs.append(rgb.cpu().numpy())
         disps.append(disp.cpu().numpy())
+
         if render_kwargs['retdepth']:
+            weights.append(extras['weights'].cpu().numpy())
+            sigmas.append(extras['sigma_map'].cpu().numpy())
+            sample_points.append(extras['sample_points'].cpu().numpy())
             depths.append(extras['depth_map'].cpu().numpy())
+
             points = extras['points'].cpu().numpy().reshape(-1, 3)
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
             pcd.colors = o3d.utility.Vector3dVector(rgbs[-1].reshape(-1, 3))
             pcds.append(pcd)
+
             Ks.append(extras['K'])
             c2ws.append(extras['c2w'].cpu().numpy())
         if i==0:
@@ -191,6 +225,16 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             imageio.imwrite(filename, rgb8)
 
             if render_kwargs['retdepth']:
+                weight8 = weights[-1]
+                weights_filename = os.path.join(savedir, 'weights_{:03d}.npy'.format(i))
+                np.save(weights_filename, weight8)
+                sigma8 = sigmas[-1]
+                sigmas_filename = os.path.join(savedir, 'sigmas_{:03d}.npy'.format(i))
+                np.save(sigmas_filename, sigma8)
+                sample8 = sample_points[-1]
+                samples_filename = os.path.join(savedir, 'samples_{:03d}.npy'.format(i))
+                np.save(samples_filename, sample8)
+
                 depth8 = depths[-1]
                 depth_filename = os.path.join(savedir, 'depth_{:03d}.npy'.format(i))
                 np.save(depth_filename, depth8)
@@ -294,6 +338,7 @@ def create_nerf(args):
     render_kwargs_test['perturb'] = False
     render_kwargs_test['raw_noise_std'] = 0.
     render_kwargs_test['retdepth'] = True
+    # render_kwargs_test['gt_register'] = args.gt_register
 
     return render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer
 
@@ -337,11 +382,12 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
     depth_map = torch.sum(weights * z_vals, -1)
     disp_map = 1./torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
     acc_map = torch.sum(weights, -1)
+    sigma_map = raw[..., 3]
 
     if white_bkgd:
         rgb_map = rgb_map + (1.-acc_map[...,None])
 
-    return rgb_map, disp_map, acc_map, weights, depth_map
+    return rgb_map, disp_map, acc_map, weights, depth_map, sigma_map
 
 
 def render_rays(ray_batch,
@@ -395,6 +441,9 @@ def render_rays(ray_batch,
     near, far = bounds[...,0], bounds[...,1] # [-1,1]
 
     t_vals = torch.linspace(0., 1., steps=N_samples)
+    device = t_vals.device
+    near = near.to(device)
+    far = far.to(device)
     if not lindisp:
         z_vals = near * (1.-t_vals) + far * (t_vals)
     else:
@@ -418,12 +467,15 @@ def render_rays(ray_batch,
 
         z_vals = lower + (upper - lower) * t_rand
 
+    rays_o = rays_o.to(device)
+    rays_d = rays_d.to(device)
+    viewdirs = viewdirs.to(device)
     pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
 
 
 #     raw = run_network(pts)
     raw = network_query_fn(pts, viewdirs, network_fn)
-    rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+    rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
     points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     if N_importance > 0:
@@ -441,13 +493,16 @@ def render_rays(ray_batch,
 #         raw = run_network(pts, fn=run_fn)
         raw = network_query_fn(pts, viewdirs, run_fn)
 
-        rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+        rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
         points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map}
     if retraw:
         ret['raw'] = raw
     if retdepth:
+        ret['weights'] = weights 
+        ret['sigma_map'] = sigma_map
+        ret['sample_points'] = pts
         ret['depth_map'] = depth_map
         ret['points'] = points
     if N_importance > 0:
@@ -530,6 +585,8 @@ def config_parser():
                         help='render the test set instead of render_poses path')
     parser.add_argument("--render_factor", type=int, default=0, 
                         help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
+    parser.add_argument("--gt_register", action='store_true', 
+                        help='groundtruth data registration')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -544,6 +601,16 @@ def config_parser():
                         help='options: llff / blender / local_blender / deepvoxels / draco')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
+
+    # sigma mesh flags
+    parser.add_argument('--x_range', nargs="+", type=float, default=[-1.0, 1.0],
+                        help='x range of the object')
+    parser.add_argument('--y_range', nargs="+", type=float, default=[-1.0, 1.0],
+                        help='x range of the object')
+    parser.add_argument('--z_range', nargs="+", type=float, default=[-1.0, 1.0],
+                        help='x range of the object')
+    parser.add_argument('--sigma_threshold', type=float, default=20.0,
+                        help='threshold to consider a location is occupied')
 
     ## deepvoxels flags
     parser.add_argument("--shape", type=str, default='greek', 
@@ -582,6 +649,200 @@ def config_parser():
                         help='frequency of render_poses video saving')
 
     return parser
+
+
+def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
+
+    # define the dense grid for query
+    N = N_samples
+    xmin, xmax = x_range
+    ymin, ymax = y_range
+    zmin, zmax = z_range
+    # assert xmax-xmin == ymax-ymin == zmax-zmin, 'the ranges must have the same length!'
+    x = np.linspace(xmin, xmax, N)
+    y = np.linspace(ymin, ymax, N)
+    z = np.linspace(zmin, zmax, N)
+
+    xyz_ = torch.FloatTensor(np.stack(np.meshgrid(x, y, z), -1).reshape(N ** 2, N, 3)).cuda()
+    dir_ = torch.zeros(N ** 2, 3).cuda()
+           # sigma is independent of direction, so any value here will produce the same result
+
+    # predict sigma (occupancy) for each grid location
+    print('Predicting occupancy ...')
+    raw = network_query_fn(xyz_, dir_, network_fn)
+    sigma = raw[..., 3].cpu().numpy()
+    sigma_hist_vals = sigma.astype(int).reshape(-1)
+    print("Shape = ", np.shape(sigma_hist_vals))
+    plt.hist(sigma_hist_vals)
+    # plt.show()
+
+    sigma = np.maximum(sigma, 0).reshape(N, N, N)
+    sigma_hist_vals = sigma.astype(int).reshape(-1)
+    sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > 0)[0]]
+    print("Shape = ", np.shape(sigma_hist_vals))
+    plt.hist(sigma_hist_vals)
+    # plt.show()
+
+    sigma_hist_vals = sigma.astype(int).reshape(-1)
+    sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > sigma_threshold)[0]]
+    print("Shape = ", np.shape(sigma_hist_vals))
+    plt.hist(sigma_hist_vals)
+    # plt.show()
+
+    # perform marching cube algorithm to retrieve vertices and triangle mesh
+    print('Extracting mesh ...')
+    vertices, triangles = mcubes.marching_cubes(sigma, sigma_threshold)
+
+    ##### Until mesh extraction here, it is the same as the original repo. ######
+
+    vertices_ = (vertices/N).astype(np.float32)
+    ## invert x and y coordinates (WHY? maybe because of the marching cubes algo)
+    x_ = (ymax-ymin) * vertices_[:, 1] + ymin
+    y_ = (xmax-xmin) * vertices_[:, 0] + xmin
+    vertices_[:, 0] = x_
+    vertices_[:, 1] = y_
+    vertices_[:, 2] = (zmax-zmin) * vertices_[:, 2] + zmin
+    vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+
+    face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
+    face['vertex_indices'] = triangles
+
+    PlyData([PlyElement.describe(vertices_[:, 0], 'vertex'),
+             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh.ply')
+
+    # remove noise in the mesh by keeping only the biggest cluster
+    print('Removing noise ...')
+    mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh.ply")
+    idxs, count, _ = mesh.cluster_connected_triangles()
+    max_cluster_idx = np.argmax(count)
+    triangles_to_remove = [i for i in range(len(face)) if idxs[i] != max_cluster_idx]
+    mesh.remove_triangles_by_index(triangles_to_remove)
+    mesh.remove_unreferenced_vertices()
+    print(f'Mesh has {len(mesh.vertices):.2f} vertices and {len(mesh.triangles):.2f} faces.')
+    print(f'Mesh has {len(mesh.vertices)/1e6:.2f} M vertices and {len(mesh.triangles)/1e6:.2f} M faces.')
+
+    vertices_ = np.asarray(mesh.vertices).astype(np.float32)
+    triangles = np.asarray(mesh.triangles)
+
+    # perform color prediction
+    # Step 0. define constants (image width, height and intrinsics)
+    # W, H = args.img_wh
+    # K = np.array([[dataset.focal, 0, W/2],
+                  # [0, dataset.focal, H/2],
+                  # [0,             0,   1]]).astype(np.float32)
+
+    # Step 1. transform vertices into world coordinate
+    N_vertices = len(vertices_)
+    vertices_homo = np.concatenate([vertices_, np.ones((N_vertices, 1))], 1) # (N, 4)
+
+    if use_vertex_normal: ## use normal vector method as suggested by the author.
+                               ## see https://github.com/bmild/nerf/issues/44
+        mesh.compute_vertex_normals()
+        rays_d = torch.FloatTensor(np.asarray(mesh.vertex_normals))
+        near = min_b * torch.ones_like(rays_d[:, :1])
+        far = max_b * torch.ones_like(rays_d[:, :1])
+        rays_o = torch.FloatTensor(vertices_) - rays_d * near * near_t
+        rays = [rays_o, rays_d]
+
+        # import pdb
+        # pdb.set_trace()
+        rgb, disp, acc, extras = render(0, 0, [[]], chunk=1024*32, rays=rays,
+                                        **kwargs)
+
+    else: ## use my color average method. see README_mesh.md
+        ## buffers to store the final averaged color
+        non_occluded_sum = np.zeros((N_vertices, 1))
+        v_color_sum = np.zeros((N_vertices, 3))
+
+        # Step 2. project the vertices onto each training image to infer the color
+        print('Fusing colors ...')
+        for idx in tqdm(range(len(dataset.image_paths))):
+            ## read image of this pose
+            image = Image.open(dataset.image_paths[idx]).convert('RGB')
+            image = image.resize(tuple(args.img_wh), Image.LANCZOS)
+            image = np.array(image)
+
+            ## read the camera to world relative pose
+            P_c2w = np.concatenate([dataset.poses[idx], np.array([0, 0, 0, 1]).reshape(1, 4)], 0)
+            P_w2c = np.linalg.inv(P_c2w)[:3] # (3, 4)
+            ## project vertices from world coordinate to camera coordinate
+            vertices_cam = (P_w2c @ vertices_homo.T) # (3, N) in "right up back"
+            vertices_cam[1:] *= -1 # (3, N) in "right down forward"
+            ## project vertices from camera coordinate to pixel coordinate
+            vertices_image = (K @ vertices_cam).T # (N, 3)
+            depth = vertices_image[:, -1:]+1e-5 # the depth of the vertices, used as far plane
+            vertices_image = vertices_image[:, :2]/depth
+            vertices_image = vertices_image.astype(np.float32)
+            vertices_image[:, 0] = np.clip(vertices_image[:, 0], 0, W-1)
+            vertices_image[:, 1] = np.clip(vertices_image[:, 1], 0, H-1)
+
+            ## compute the color on these projected pixel coordinates
+            ## using bilinear interpolation.
+            ## NOTE: opencv's implementation has a size limit of 32768 pixels per side,
+            ## so we split the input into chunks.
+            colors = []
+            remap_chunk = int(3e4)
+            for i in range(0, N_vertices, remap_chunk):
+                colors += [cv2.remap(image,
+                                    vertices_image[i:i+remap_chunk, 0],
+                                    vertices_image[i:i+remap_chunk, 1],
+                                    interpolation=cv2.INTER_LINEAR)[:, 0]]
+            colors = np.vstack(colors) # (N_vertices, 3)
+
+            ## predict occlusion of each vertex
+            ## we leverage the concept of NeRF by constructing rays coming out from the camera
+            ## and hitting each vertex; by computing the accumulated opacity along this path,
+            ## we can know if the vertex is occluded or not.
+            ## for vertices that appear to be occluded from every input view, we make the
+            ## assumption that its color is the same as its neighbors that are facing our side.
+            ## (think of a surface with one side facing us: we assume the other side has the same color)
+
+            ## ray's origin is camera origin
+            rays_o = torch.FloatTensor(dataset.poses[idx][:, -1]).expand(N_vertices, 3)
+            ## ray's direction is the vector pointing from camera origin to the vertices
+            rays_d = torch.FloatTensor(vertices_) - rays_o # (N_vertices, 3)
+            rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
+            near = dataset.bounds.min() * torch.ones_like(rays_o[:, :1])
+            ## the far plane is the depth of the vertices, since what we want is the accumulated
+            ## opacity along the path from camera origin to the vertices
+            far = torch.FloatTensor(depth) * torch.ones_like(rays_o[:, :1])
+            results = f([nerf_fine], embeddings,
+                        torch.cat([rays_o, rays_d, near, far], 1).cuda(),
+                        args.N_samples,
+                        0,
+                        args.chunk,
+                        dataset.white_back)
+            opacity = results['opacity_coarse'].cpu().numpy()[:, np.newaxis] # (N_vertices, 1)
+            opacity = np.nan_to_num(opacity, 1)
+
+            non_occluded = np.ones_like(non_occluded_sum) * 0.1/depth # weight by inverse depth
+                                                                    # near=more confident in color
+            non_occluded += opacity < args.occ_threshold
+
+            v_color_sum += colors * non_occluded
+            non_occluded_sum += non_occluded
+
+    # Step 3. combine the output and write to file
+    if use_vertex_normal:
+        v_colors = rgb.cpu().numpy() * 255.0
+    else: ## the combined color is the average color among all views
+        v_colors = v_color_sum/non_occluded_sum
+    v_colors = v_colors.astype(np.uint8)
+    v_colors.dtype = [('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+    vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    vertex_all = np.empty(N_vertices, vertices_.dtype.descr+v_colors.dtype.descr)
+    for prop in vertices_.dtype.names:
+        vertex_all[prop] = vertices_[prop][:, 0]
+    for prop in v_colors.dtype.names:
+        vertex_all[prop] = v_colors[prop][:, 0]
+
+    face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
+    face['vertex_indices'] = triangles
+
+    PlyData([PlyElement.describe(vertex_all, 'vertex'),
+             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored.ply')
+
+    print('Done!')
 
 
 def train():
@@ -633,7 +894,7 @@ def train():
             images = images[...,:3]
 
     elif args.dataset_type == 'local_blender':
-        images, poses, render_poses, meta, i_split = load_local_blender_data(args.datadir, args.res, args.testskip)
+        images, poses, render_poses, meta, gt_depths, i_split = load_local_blender_data(args.datadir, args.res, args.testskip)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded local blender', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -672,7 +933,7 @@ def train():
         far = hemi_R+1.
 
     elif args.dataset_type == 'draco':
-        images, poses, render_poses, meta, i_split = load_draco_data(args.datadir, args.res, args.testskip)
+        images, poses, render_poses, meta, gt_depths, i_split = load_draco_data(args.datadir, args.res, args.testskip)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded draco', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -748,7 +1009,12 @@ def train():
             os.makedirs(testsavedir, exist_ok=True)
             print('test poses shape', render_poses.shape)
 
-            rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+            if args.gt_register:
+                rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
+            else:
+                extract_mesh(args.N_samples, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
+                # rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+
             print('Done rendering', testsavedir)
             imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
@@ -895,7 +1161,7 @@ def train():
             wandb.log({
                 "Train Loss": loss.item(),
                 "Train PSNR": psnr.item(),
-                "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((32, 32, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((32, 32, 3)))]
+                "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((64, 64, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((64, 64, 3)))]
                 })
 
         if i%args.i_weights==0:

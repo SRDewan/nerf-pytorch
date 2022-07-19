@@ -1,6 +1,6 @@
-expname = local_blender_non_random_full_image_training_100_epochs_res_32
+expname = local_blender_unscaled_precrop_random_2_100_epochs_res_32
 basedir = ./logs
-datadir = /home2/shaurya.dewan/NOCs/data/blender_data/single_obj_scene/
+datadir = /home2/shaurya.dewan/data/blender_data/single_obj_scene/
 dataset_type = local_blender
 
 no_batching = True
@@ -11,13 +11,13 @@ lrate_decay = 500
 
 N_samples = 64 
 N_importance = 64 
-N_rand = 0
+N_rand = 1024
 
-precrop_iters = 0
+precrop_iters = 800
 precrop_frac = 0.5
 iters = 40000
 
-res = 0.1
+res = 1
 wand_en = True
 i_print = 400
 i_img = 400
