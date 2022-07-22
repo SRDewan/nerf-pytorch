@@ -263,6 +263,6 @@ def load_draco_data(basedir, res = 1, skip = 1):
             "fx": 888.88 * res
         }
 
-    return all_imgs, all_poses, render_poses, meta, all_depths, i_split
+    return all_imgs, all_poses, render_poses, meta, all_depths, all_masks, i_split
 
 

@@ -7,6 +7,8 @@ import numpy as np
 
 # Misc
 img2mse = lambda x, y : torch.mean((x - y) ** 2)
+entropy_loss = nn.CrossEntropyLoss()
+mask2entropy = lambda x, y : entropy_loss(x, y)
 mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 to8b = lambda x : (255*np.clip(x,0,1)).astype(np.uint8)
 
@@ -65,7 +67,7 @@ def get_embedder(multires, i=0):
 
 # Model
 class NeRF(nn.Module):
-    def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, output_ch=4, skips=[4], use_viewdirs=False):
+    def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, output_ch=4, skips=[4], use_viewdirs=False, semantic_en=False, num_classes=2):
         """ 
         """
         super(NeRF, self).__init__()
@@ -75,6 +77,8 @@ class NeRF(nn.Module):
         self.input_ch_views = input_ch_views
         self.skips = skips
         self.use_viewdirs = use_viewdirs
+        self.semantic_en = semantic_en 
+        self.C = num_classes
         
         self.pts_linears = nn.ModuleList(
             [nn.Linear(input_ch, W)] + [nn.Linear(W, W) if i not in self.skips else nn.Linear(W + input_ch, W) for i in range(D-1)])
@@ -90,6 +94,17 @@ class NeRF(nn.Module):
             self.feature_linear = nn.Linear(W, W)
             self.alpha_linear = nn.Linear(W, 1)
             self.rgb_linear = nn.Linear(W//2, 3)
+
+            if semantic_en:
+                self.semantic = nn.Sequential(
+                        nn.Linear(W, W),
+                        nn.ReLU(True),
+                        nn.Linear(W, W//2),
+                        nn.ReLU(True),
+                        nn.Linear(W//2, self.C),
+                        #nn.Softmax(-1)
+                    )
+
         else:
             self.output_linear = nn.Linear(W, output_ch)
 
@@ -102,6 +117,7 @@ class NeRF(nn.Module):
             if i in self.skips:
                 h = torch.cat([input_pts, h], -1)
 
+        pts_embedding = h.clone()
         if self.use_viewdirs:
             alpha = self.alpha_linear(h)
             feature = self.feature_linear(h)
@@ -113,6 +129,11 @@ class NeRF(nn.Module):
 
             rgb = self.rgb_linear(h)
             outputs = torch.cat([rgb, alpha], -1)
+            
+            if self.semantic_en:
+               semantic_map = self.semantic(pts_embedding) 
+               outputs = torch.cat([rgb, alpha, semantic_map], -1)
+
         else:
             outputs = self.output_linear(h)
 
