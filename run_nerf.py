@@ -30,9 +30,10 @@ from PIL import Image
 import mcubes
 from plyfile import PlyData, PlyElement
 
+device_idx = 2
 gc.collect()
 torch.cuda.empty_cache()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:%d" % (device_idx) if torch.cuda.is_available() else "cpu")
 np.random.seed(0)
 DEBUG = False
 
@@ -488,7 +489,6 @@ def render_rays(ray_batch,
     near, far = bounds[...,0], bounds[...,1] # [-1,1]
 
     t_vals = torch.linspace(0., 1., steps=N_samples)
-    device = t_vals.device
     near = near.to(device)
     far = far.to(device)
     if not lindisp:
@@ -1408,5 +1408,6 @@ def train():
 
 if __name__=='__main__':
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    torch.cuda.set_device(device_idx)
 
     train()
