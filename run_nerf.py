@@ -29,8 +29,9 @@ import cv2
 from PIL import Image
 import mcubes
 from plyfile import PlyData, PlyElement
+import math
 
-device_idx = 2
+device_idx = 0
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda:%d" % (device_idx) if torch.cuda.is_available() else "cpu")
@@ -670,6 +671,9 @@ def config_parser():
                         help='options: llff / blender / local_blender / deepvoxels / draco')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
+    parser.add_argument("--max_ind", type=int, default=100,
+                        help='max index used in loader')
+
 
     # sigma mesh flags
     parser.add_argument('--x_range', nargs="+", type=float, default=[-1.0, 1.0],
@@ -720,6 +724,32 @@ def config_parser():
     return parser
 
 
+def get_max_cube(minCorner, maxCorner):
+    minPt, maxPt = copy.deepcopy(minCorner), copy.deepcopy(maxCorner)
+    diagLen = math.dist(minPt, maxPt)
+
+    for i in range(len(minPt)):
+        midPt = (minPt[i] + maxPt[i]) / 2
+        minPt[i] = midPt - diagLen / 2
+        maxPt[i] = midPt + diagLen / 2
+
+    return minPt, maxPt
+
+
+def get_coords(minCoord, maxCoord, sampleCtr=128):
+    xdists = np.linspace(minCoord[0], maxCoord[0], sampleCtr)
+    ydists = np.linspace(minCoord[1], maxCoord[1], sampleCtr)
+    zdists = np.linspace(minCoord[2], maxCoord[2], sampleCtr)
+
+    # xs, ys, zs = np.meshgrid(xdists, ydists, zdists)
+    # xs, ys, zs = xs.reshape((-1, 1)), ys.reshape((-1, 1)), zs.reshape((-1, 1))
+    # coords = np.hstack([xs, ys, zs])
+    coords = np.stack(np.meshgrid(xdists, ydists, zdists, indexing='ij'), axis=-1).astype(np.float32)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(coords.reshape((-1, 3)))
+    return pcd, coords
+
+
 def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
 
     # define the dense grid for query
@@ -742,26 +772,61 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     sigma = raw[..., 3].cpu().numpy()
     sigma_hist_vals = sigma.astype(int).reshape(-1)
     print("Shape = ", np.shape(sigma_hist_vals))
+    plt.figure()
     plt.hist(sigma_hist_vals)
-    # plt.show()
+    plt.show()
+    fig_filename = os.path.join(save_path, 'original_sigmas.png')
+    plt.savefig(fig_filename)
+
+    occ_inds = np.where(sigma.reshape((N, N, N)) > sigma_threshold)
+    samples = np.stack(np.meshgrid(x, y, z), -1)
+    occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
+    min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
+    max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
+    min_pt, max_pt = get_max_cube(min_corner, max_corner)
+    box_pcd, coords = get_coords(min_pt, max_pt, N)
+    print(min_corner, max_corner, min_pt, max_pt)
+
+    xyz_ = torch.FloatTensor(coords.reshape(N ** 2, N, 3)).cuda()
+    dir_ = torch.zeros(N ** 2, 3).cuda()
+           # sigma is independent of direction, so any value here will produce the same result
+
+    # predict sigma (occupancy) for each grid location
+    print('Predicting occupancy for resized cube...')
+    raw = network_query_fn(xyz_, dir_, network_fn)
+    sigma = raw[..., 3].cpu().numpy()
+    sigma_hist_vals = sigma.astype(int).reshape(-1)
+    print("Shape = ", np.shape(sigma_hist_vals))
+    plt.figure()
+    plt.hist(sigma_hist_vals)
+    plt.show()
+    fig_filename = os.path.join(save_path, 'resampled_sigmas.png')
+    plt.savefig(fig_filename)
 
     sigma = np.maximum(sigma, 0).reshape(N, N, N)
     sigma_hist_vals = sigma.astype(int).reshape(-1)
     sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > 0)[0]]
     print("Shape = ", np.shape(sigma_hist_vals))
+    plt.figure()
     plt.hist(sigma_hist_vals)
-    # plt.show()
+    plt.show()
+    fig_filename = os.path.join(save_path, 'resampled_sigmas_positive.png')
+    plt.savefig(fig_filename)
 
     sigma_hist_vals = sigma.astype(int).reshape(-1)
     sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > sigma_threshold)[0]]
     print("Shape = ", np.shape(sigma_hist_vals))
+    plt.figure()
     plt.hist(sigma_hist_vals)
-    # plt.show()
+    plt.show()
+    fig_filename = os.path.join(save_path, 'resampled_sigmas_thresh.png')
+    plt.savefig(fig_filename)
 
-    sigmas_filename = os.path.join(save_path, 'sigmas.npy')
+    sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
-    samples = np.stack(np.meshgrid(x, y, z), -1)
-    samples_filename = os.path.join(save_path, 'samples.npy')
+    # samples = np.stack(np.meshgrid(x, y, z), -1)
+    samples = coords
+    samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
 
     # perform marching cube algorithm to retrieve vertices and triangle mesh
@@ -772,8 +837,8 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
 
     vertices_ = (vertices/N).astype(np.float32)
     ## invert x and y coordinates (WHY? maybe because of the marching cubes algo)
-    x_ = (ymax-ymin) * vertices_[:, 1] + ymin
-    y_ = (xmax-xmin) * vertices_[:, 0] + xmin
+    x_ = (max_pt[1]-min_pt[1]) * vertices_[:, 1] + min_pt[1]
+    y_ = (max_pt[0]-min_pt[0]) * vertices_[:, 0] + min_pt[0]
     vertices_[:, 0] = x_
     vertices_[:, 1] = y_
     vertices_[:, 2] = (zmax-zmin) * vertices_[:, 2] + zmin
@@ -783,11 +848,11 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     face['vertex_indices'] = triangles
 
     PlyData([PlyElement.describe(vertices_[:, 0], 'vertex'),
-             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_{sigma_threshold}.ply')
+             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_{sigma_threshold}_{N}.ply')
 
     # remove noise in the mesh by keeping only the biggest cluster
     print('Removing noise ...')
-    mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh_{sigma_threshold}.ply")
+    mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh_{sigma_threshold}_{N}.ply")
     idxs, count, _ = mesh.cluster_connected_triangles()
     max_cluster_idx = np.argmax(count)
     triangles_to_remove = [i for i in range(len(face)) if idxs[i] != max_cluster_idx]
@@ -913,7 +978,7 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     face['vertex_indices'] = triangles
 
     PlyData([PlyElement.describe(vertex_all, 'vertex'),
-             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored_{sigma_threshold}.ply')
+             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored_{sigma_threshold}_{N}.ply')
 
     print('Done!')
 
@@ -967,7 +1032,7 @@ def train():
             images = images[...,:3]
 
     elif args.dataset_type == 'local_blender':
-        images, poses, render_poses, meta, gt_depths, i_split = load_local_blender_data(args.datadir, args.res, args.testskip)
+        images, poses, render_poses, meta, masks, gt_depths, i_split = load_local_blender_data(args.datadir, args.res, args.testskip, args.max_ind)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded local blender', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -1245,18 +1310,24 @@ def train():
         # print(np.unique(target_s.detach().cpu().numpy(), return_counts=True))
         # tqdm.write(f"Info: {rgb.shape}, {target_s.shape}, \nUnique GT Values: {np.unique(target_s.detach().cpu().numpy(), return_counts=True)} \nUnique Rendered Values: {np.unique(rgb.detach().cpu().numpy(), return_counts=True)}")
         if args.wand_en:
+            render_H = int(N_rand ** 0.5)
+            render_W = int(N_rand ** 0.5)
+            if N_rand == H * W:
+                render_H = H
+                render_W = W
+
             log_dict = {
                 "Train Loss": loss.item(),
                 "Train PSNR": psnr.item(),
-                "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((64, 64, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((64, 64, 3)))]
+                "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((render_H, render_W, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((render_H, render_W, 3)))]
                 }
 
             if args.semantic_en:
-                semantic_gt = target_sem_s.detach().cpu().numpy().reshape((64, 64))
+                semantic_gt = target_sem_s.detach().cpu().numpy().reshape((render_H, render_W))
                 semantic_gt = labels_to_pallette(semantic_gt, tensor = False)
 
                 semantic_pred = torch.nn.Softmax(dim=1)(extras['semantic_map']).max(dim=1).indices
-                semantic_pred = semantic_pred.detach().cpu().numpy().reshape((64, 64))
+                semantic_pred = semantic_pred.detach().cpu().numpy().reshape((render_H, render_W))
                 semantic_pred = labels_to_pallette(semantic_pred, tensor = False)
 
                 log_dict["Train RGB Loss"] = (img_loss + img_loss0).item()
