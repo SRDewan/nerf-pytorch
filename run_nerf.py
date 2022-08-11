@@ -30,6 +30,7 @@ from PIL import Image
 import mcubes
 from plyfile import PlyData, PlyElement
 import math
+from sklearn.cluster import KMeans
 
 device_idx = 0
 gc.collect()
@@ -343,7 +344,7 @@ def create_nerf(args):
     if len(ckpts) > 0 and not args.no_reload:
         ckpt_path = ckpts[-1]
         print('Reloading from', ckpt_path)
-        ckpt = torch.load(ckpt_path)
+        ckpt = torch.load(ckpt_path, map_location=device)
 
         start = ckpt['global_step']
         optimizer.load_state_dict(ckpt['optimizer_state_dict'])
@@ -750,6 +751,32 @@ def get_coords(minCoord, maxCoord, sampleCtr=128):
     return pcd, coords
 
 
+def cluster(sigmas):
+    dim, _, _ = sigmas.shape
+    sigmas = sigmas.reshape((-1, 1))
+    sigmas = sigmas + 1e2
+  
+    # model = GaussianMixture(n_components=2,init_params="k-means++",weights_init=[0.9,0.1])
+    model = KMeans(init="k-means++", n_clusters=2)
+    
+    model.fit(sigmas)
+    labels = model.predict(sigmas)
+    (clusters, counts) = np.unique(labels, return_counts=True)
+    fg_label = clusters[np.where(counts == counts.min())[0]]
+    clustered_sigmas = np.where(labels == fg_label, 1, 0)
+    return clustered_sigmas.reshape((dim, dim, dim))
+
+
+def plot_sigmas(sigmas, save_path, plot_file_name):
+    sigma_hist_vals = sigmas.astype(int).reshape(-1)
+    plt.figure()
+    plt.hist(sigma_hist_vals)
+    plt.show()
+
+    fig_file_path = os.path.join(save_path, plot_file_name)
+    plt.savefig(fig_file_path)
+
+
 def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
 
     # define the dense grid for query
@@ -769,16 +796,13 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     # predict sigma (occupancy) for each grid location
     print('Predicting occupancy ...')
     raw = network_query_fn(xyz_, dir_, network_fn)
-    sigma = raw[..., 3].cpu().numpy()
-    sigma_hist_vals = sigma.astype(int).reshape(-1)
-    print("Shape = ", np.shape(sigma_hist_vals))
-    plt.figure()
-    plt.hist(sigma_hist_vals)
-    plt.show()
-    fig_filename = os.path.join(save_path, 'original_sigmas.png')
-    plt.savefig(fig_filename)
+    sigma = raw[..., 3].cpu().numpy().reshape((N, N, N))
+    plot_sigmas(sigma, save_path, 'original_sigmas.png')
 
-    occ_inds = np.where(sigma.reshape((N, N, N)) > sigma_threshold)
+    clustered_sigma = cluster(sigma)
+    plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
+
+    occ_inds = np.where(clustered_sigma > 0.5)
     samples = np.stack(np.meshgrid(x, y, z), -1)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
     min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
@@ -794,37 +818,19 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     # predict sigma (occupancy) for each grid location
     print('Predicting occupancy for resized cube...')
     raw = network_query_fn(xyz_, dir_, network_fn)
-    sigma = raw[..., 3].cpu().numpy()
-    sigma_hist_vals = sigma.astype(int).reshape(-1)
-    print("Shape = ", np.shape(sigma_hist_vals))
-    plt.figure()
-    plt.hist(sigma_hist_vals)
-    plt.show()
-    fig_filename = os.path.join(save_path, 'resampled_sigmas.png')
-    plt.savefig(fig_filename)
+    sigma = raw[..., 3].cpu().numpy().reshape((N, N, N))
+    plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
 
-    sigma = np.maximum(sigma, 0).reshape(N, N, N)
-    sigma_hist_vals = sigma.astype(int).reshape(-1)
-    sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > 0)[0]]
-    print("Shape = ", np.shape(sigma_hist_vals))
-    plt.figure()
-    plt.hist(sigma_hist_vals)
-    plt.show()
-    fig_filename = os.path.join(save_path, 'resampled_sigmas_positive.png')
-    plt.savefig(fig_filename)
+    pos_sigma_inds = np.where(sigma > 0)
+    pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
+    plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
 
-    sigma_hist_vals = sigma.astype(int).reshape(-1)
-    sigma_hist_vals = sigma_hist_vals[np.where(sigma_hist_vals > sigma_threshold)[0]]
-    print("Shape = ", np.shape(sigma_hist_vals))
-    plt.figure()
-    plt.hist(sigma_hist_vals)
-    plt.show()
-    fig_filename = os.path.join(save_path, 'resampled_sigmas_thresh.png')
-    plt.savefig(fig_filename)
+    thresh_sigma_inds = np.where(sigma > sigma_threshold)
+    thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
+    plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
 
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
-    # samples = np.stack(np.meshgrid(x, y, z), -1)
     samples = coords
     samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
