@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import cv2
 import glob
 import random
+import matplotlib.pyplot as plt
 
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -117,6 +118,7 @@ def load_dataset(directory):
     images.sort()
 
     segmetation_meta_dir = directory + "seg_metadata/"
+    segmentation_dir = directory + "segmentation_masks/"
     mask_dir = directory + "mask/"
     depth_dir = directory + "depth/"
     m = 0
@@ -154,6 +156,7 @@ def load_dataset(directory):
 
         imgs[image_id]["mask_path"] = mask_dir + "frame_" + image_current.split("_")[-3] + "_Mask_00.png"
         imgs[image_id]["segmentation_meta"] = mask_dir + "frame_" + image_current.split("_")[-3] + "_Mask_00.png"
+        imgs[image_id]["segmentation_path"] = segmentation_dir + "Instance_mask_" + image_current.split("_")[-3] + ".png"
         imgs[image_id]["depth_path"] = depth_dir + "frame_" + image_current.split("_")[-3] + "_Depth_00.exr"
 
     cams = {0: {'width': 640, 'height': 480, 'fx': 888.8889, 'fy': 1000.0000, 'px': 320.0000, 'py': 240.0000}}
@@ -191,13 +194,23 @@ def main_loader(root_dir, scale):
 
     return imgs, cams 
 
-def load_local_blender_data(basedir, res=1, skip=1):
+def pallette_to_labels(mask):
+    uniq_vals = np.unique(mask)
+
+    for i in range(len(uniq_vals)):
+        mask = np.where(mask == uniq_vals[i], i, mask)
+
+    return mask
+
+def load_local_blender_data(basedir, res=1, skip=1, max_ind=100):
     imgs, cams = main_loader(basedir, res)
     all_imgs = []
     all_poses = []
+    all_seg_masks = []
     all_depths = []
 
-    for index in range(len(imgs)):
+    for index in range(0, max_ind, skip):
+        print(index, imgs[index]["path"])
         # n_image = cv2.imread(imgs[index]["path"])
         # n_image = cv2.cvtColor(n_image, cv2.COLOR_BGR2RGB) / 255.0
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
@@ -212,6 +225,11 @@ def load_local_blender_data(basedir, res=1, skip=1):
         # n_pose = torch.from_numpy(n_pose)
         all_poses.append(n_pose)
         
+        # n_seg_mask = cv2.imread(imgs[index]["segmentation_path"], cv2.IMREAD_GRAYSCALE)
+        # n_seg_mask = cv2.resize(n_seg_mask, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
+        # n_seg_mask = pallette_to_labels(n_seg_mask)
+        # all_seg_masks.append(n_seg_mask)
+
         n_depth = np.array(cv2.imread(imgs[index]["depth_path"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH))[:, :, 0]
         n_depth = np.where(n_depth == np.inf, 0, n_depth)
         # n_depth = imageio.imread(imgs[index]["depth_path"])
@@ -221,6 +239,7 @@ def load_local_blender_data(basedir, res=1, skip=1):
     
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
+    # all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
 
     indices = np.arange(len(all_imgs))
@@ -232,6 +251,6 @@ def load_local_blender_data(basedir, res=1, skip=1):
 
     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
 
-    return all_imgs, all_poses, render_poses, cams[0], all_depths, i_split
+    return all_imgs, all_poses, render_poses, cams[0], all_seg_masks, all_depths, i_split
 
 

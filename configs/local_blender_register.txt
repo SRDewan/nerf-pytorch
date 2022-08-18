@@ -1,7 +1,9 @@
-expname = local_blender_gt_registration
+expname = single_obj_local_blender_gt_registration
 basedir = ./logs
-datadir = /home2/shaurya.dewan/data/blender_data/single_obj_scene/
+datadir = /home2/shaurya.dewan/NOCs/data/blender_data/single_obj_multiple_scenes/scene_00/
 dataset_type = local_blender 
+testskip = 1
+max_ind = 200
 render_only = True
 render_test = True
 gt_register = True
@@ -18,7 +20,7 @@ N_rand = 0
 
 precrop_iters = 0
 precrop_frac = 0.5
-iters = 10000
+iters = 50000
 
 res = 1
 wand_en = False

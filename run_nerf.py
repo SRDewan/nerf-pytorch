@@ -751,13 +751,14 @@ def get_coords(minCoord, maxCoord, sampleCtr=128):
     return pcd, coords
 
 
-def cluster(sigmas):
+def cluster(sigmas, n_clusters=2):
+    print(n_clusters)
     dim, _, _ = sigmas.shape
     sigmas = sigmas.reshape((-1, 1))
     sigmas = sigmas + 1e2
   
     # model = GaussianMixture(n_components=2,init_params="k-means++",weights_init=[0.9,0.1])
-    model = KMeans(init="k-means++", n_clusters=2)
+    model = KMeans(init="k-means++", n_clusters=n_clusters)
     
     model.fit(sigmas)
     labels = model.predict(sigmas)
@@ -775,6 +776,12 @@ def plot_sigmas(sigmas, save_path, plot_file_name):
 
     fig_file_path = os.path.join(save_path, plot_file_name)
     plt.savefig(fig_file_path)
+
+
+def translate_obj(pts, minCorner, maxCorner):
+    mids = (minCorner + maxCorner) / 2
+    pts = pts - mids
+    return pts
 
 
 def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
@@ -799,7 +806,21 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     sigma = raw[..., 3].cpu().numpy().reshape((N, N, N))
     plot_sigmas(sigma, save_path, 'original_sigmas.png')
 
-    clustered_sigma = cluster(sigma)
+    raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
+    z_vals = torch.Tensor(z).to(device).unsqueeze(0).repeat(N * N, 1)
+    dists = z_vals[..., 1:] - z_vals[..., :-1]
+    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
+    alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
+    weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]).cpu().numpy()
+    alpha = alpha.cpu().numpy()
+    plot_sigmas(alpha.reshape((N, N, N)), save_path, 'original_alphas.png')
+    plot_sigmas(weights.reshape((N, N, N)), save_path, 'original_weights.png')
+    alphas_filename = os.path.join(save_path, 'original_alphas_%d.npy' % (N))
+    np.save(alphas_filename, alpha)
+    weights_filename = os.path.join(save_path, 'original_weights_%d.npy' % (N))
+    np.save(weights_filename, weights)
+
+    clustered_sigma = cluster(sigma, 2)
     plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
 
     occ_inds = np.where(clustered_sigma > 0.5)
@@ -831,7 +852,27 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
 
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
-    samples = coords
+
+    raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
+    z_vals = torch.Tensor(coords[..., 2]).to(device).reshape((N * N, N))
+    dists = z_vals[..., 1:] - z_vals[..., :-1]
+    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
+    alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
+    weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]).cpu().numpy().reshape((N, N, N))
+    alpha = alpha.cpu().numpy().reshape((N, N, N))
+    plot_sigmas(alpha, save_path, 'resized_alphas.png')
+    plot_sigmas(weights, save_path, 'resized_weights.png')
+    alphas_filename = os.path.join(save_path, 'alphas_%d.npy' % (N))
+    np.save(alphas_filename, alpha)
+    weights_filename = os.path.join(save_path, 'weights_%d.npy' % (N))
+    np.save(weights_filename, weights)
+
+    samples = coords.reshape((-1, 3))
+    samples = translate_obj(samples, min_pt, max_pt)
+    min_corner = np.array([np.min(samples[:, 0]), np.min(samples[:, 1]), np.min(samples[:, 2])])
+    max_corner = np.array([np.max(samples[:, 0]), np.max(samples[:, 1]), np.max(samples[:, 2])])
+    samples = samples / max_corner
+    samples = samples.reshape((N, N, N, 3))
     samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
 
@@ -1144,7 +1185,7 @@ def train():
         with torch.no_grad():
             if args.render_test:
                 # render_test switches to test poses
-                images = images[i_test]
+                images = images
             else:
                 # Default is smoother render_poses path
                 images = None
