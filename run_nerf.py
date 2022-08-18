@@ -637,6 +637,10 @@ def config_parser():
                         help='number of coarse samples per ray')
     parser.add_argument("--N_importance", type=int, default=0,
                         help='number of additional fine samples per ray')
+    parser.add_argument("--near", type=float, default=0.,
+                        help='closest point to sample during ray rendering')
+    parser.add_argument("--far", type=float, default=1.,
+                        help='farthest point to sample during ray rendering')
     parser.add_argument("--perturb", type=float, default=1.,
                         help='set to 0. for no jitter, 1. for jitter')
     parser.add_argument("--use_viewdirs", action='store_true', 
@@ -1085,8 +1089,8 @@ def train():
         print('Loaded local blender', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
-        near = 0.
-        far = 4.1
+        near = args.near
+        far = args.far
 
         if args.white_bkgd:
             images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
@@ -1124,8 +1128,8 @@ def train():
         print('Loaded draco', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
-        near = 0.
-        far = 5.5
+        near = args.near
+        far = args.far
 
         if args.white_bkgd:
             images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
