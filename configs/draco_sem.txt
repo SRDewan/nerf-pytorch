@@ -1,6 +1,6 @@
 expname = draco_semantic_1_rgb_1_32_samples_lr_0001_precrop_random_10_100_epochs_res_64
 basedir = ./logs
-datadir = /home2/shaurya.dewan/data/DRACO20K_cars_small/1198255e3d20d2f323f3ca54768fe2ee/
+datadir = /home2/shaurya.dewan/NOCs/data/DRACO20K_cars_small/1198255e3d20d2f323f3ca54768fe2ee/
 dataset_type = draco 
 
 no_batching = True
@@ -13,8 +13,6 @@ N_samples = 32
 N_importance = 64 
 N_rand = 4096
 lrate = 0.0001
-chunk = 1024
-netchunk = 32768
 semantic_en = True
 num_classes = 2
 
@@ -26,7 +24,7 @@ precrop_frac = 0.5
 iters = 10000
 
 res = 1
-wand_en = False
-i_print = 10
-i_img = 10
+wand_en = True
+i_print = 100
+i_img = 100
 i_weights = 1000

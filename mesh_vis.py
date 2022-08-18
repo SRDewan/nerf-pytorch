@@ -9,11 +9,11 @@ if __name__=="__main__":
     parser.add_argument("--num_samples", default=1000, type = int)
     parser.add_argument("--ground_truth", required=True, type = str)
     parser.add_argument("--max_files", default=10, type = int)
-    parser.add_argument("--sigma_thresh", default=10, type = int)
+    parser.add_argument("--sigma_thresh", default=10.0, type = float)
     args = parser.parse_args()
 
-    sigmas_path = os.path.join(args.input, "sigmas.npy")
-    samples_path = os.path.join(args.input, "samples.npy")
+    sigmas_path = os.path.join(args.input, "original_alphas_32.npy")
+    samples_path = os.path.join(args.input, "samples_32.npy")
     sigmas = np.load(sigmas_path).reshape((-1, 1))
     samples = np.load(samples_path).reshape((-1, 3))
     occ = np.where(sigmas > args.sigma_thresh)[0]
