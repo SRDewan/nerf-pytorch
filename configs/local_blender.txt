@@ -1,4 +1,4 @@
-expname = multi_obj_local_blender_semantic_1_rgb_10_lr_001_precrop_random_10_100_epochs_res_64_samples_32
+expname = multi_obj_local_blender_rgb_only_range_25_lr_001_precrop_random_10_100_epochs_res_64_samples_64_64
 basedir = ./logs
 datadir = /home2/shaurya.dewan/NOCs/data/blender_data/multi_obj_scene/
 dataset_type = local_blender
@@ -6,28 +6,29 @@ testskip = 1
 max_ind = 200
 
 no_batching = True
-ft_path = /home2/shaurya.dewan/NOCs/nerf-pytorch/logs/multi_obj_local_blender_semantic_1_rgb_10_lr_001_precrop_random_10_100_epochs_res_64_samples_32/028000.tar
 
 use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
-N_samples = 32
+N_samples = 64
 N_importance = 64 
+near = 0.0
+far = 25.0
 N_rand = 4096
 lrate = 0.001
-semantic_en = True
+semantic_en = False
 num_classes = 6
 
-rgb_wt = 10
-semantic_wt = 1
+rgb_wt = 1
+semantic_wt = 0
 
 precrop_iters = 2000
 precrop_frac = 0.5
 iters = 60000
 
 res = 1
-wand_en = False
+wand_en = True
 i_print = 200
 i_img = 200
 i_weights = 4000

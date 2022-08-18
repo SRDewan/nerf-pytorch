@@ -12,6 +12,8 @@ lrate_decay = 500
 
 N_samples = 32
 N_importance = 64 
+near = 0.0
+far = 5.5
 N_rand = 4096
 lrate = 0.0001
 

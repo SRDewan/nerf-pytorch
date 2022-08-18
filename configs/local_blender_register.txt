@@ -1,6 +1,6 @@
-expname = single_obj_local_blender_gt_registration
+expname = multi_obj_local_blender_gt_registration
 basedir = ./logs
-datadir = /home2/shaurya.dewan/NOCs/data/blender_data/single_obj_multiple_scenes/scene_00/
+datadir = /home2/shaurya.dewan/NOCs/data/blender_data/multi_obj_scene/
 dataset_type = local_blender 
 testskip = 1
 max_ind = 200
