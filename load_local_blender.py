@@ -113,7 +113,7 @@ def load_dataset(directory):
     pose_files.sort()
 
     imgs = {}
-    image_dir = directory + "rgb/"
+    image_dir = directory + "rbg/"
     images = glob.glob(image_dir + "*.png")
     images.sort()
 
@@ -210,7 +210,7 @@ def load_local_blender_data(basedir, res=1, skip=1, max_ind=100):
     all_depths = []
 
     for index in range(0, max_ind, skip):
-        print(index, imgs[index]["path"])
+        # print(index, imgs[index]["path"])
         # n_image = cv2.imread(imgs[index]["path"])
         # n_image = cv2.cvtColor(n_image, cv2.COLOR_BGR2RGB) / 255.0
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
@@ -225,10 +225,10 @@ def load_local_blender_data(basedir, res=1, skip=1, max_ind=100):
         # n_pose = torch.from_numpy(n_pose)
         all_poses.append(n_pose)
         
-        # n_seg_mask = cv2.imread(imgs[index]["segmentation_path"], cv2.IMREAD_GRAYSCALE)
-        # n_seg_mask = cv2.resize(n_seg_mask, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
-        # n_seg_mask = pallette_to_labels(n_seg_mask)
-        # all_seg_masks.append(n_seg_mask)
+        n_seg_mask = cv2.imread(imgs[index]["segmentation_path"], cv2.IMREAD_GRAYSCALE)
+        n_seg_mask = cv2.resize(n_seg_mask, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
+        n_seg_mask = pallette_to_labels(n_seg_mask)
+        all_seg_masks.append(n_seg_mask)
 
         n_depth = np.array(cv2.imread(imgs[index]["depth_path"], cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH))[:, :, 0]
         n_depth = np.where(n_depth == np.inf, 0, n_depth)
@@ -239,7 +239,7 @@ def load_local_blender_data(basedir, res=1, skip=1, max_ind=100):
     
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
-    # all_seg_masks = np.array(all_seg_masks).astype(np.float32)
+    all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
 
     indices = np.arange(len(all_imgs))
