@@ -631,6 +631,10 @@ def config_parser():
                         help='rgb loss weight')
     parser.add_argument("--semantic_wt", type=float, default=0,
                         help='semantic loss weight')
+    parser.add_argument("--rays_sparsity_wt", type=float, default=0,
+                        help='rays sparsity loss weight')
+    parser.add_argument("--rays_sparsity_scale", type=float, default=0,
+                        help='rays sparsity loss hyperparameter')
 
     # rendering options
     parser.add_argument("--N_samples", type=int, default=64, 
@@ -773,6 +777,7 @@ def cluster(sigmas, n_clusters=2):
 
 
 def plot_sigmas(sigmas, save_path, plot_file_name):
+    print(plot_file_name)
     sigma_hist_vals = sigmas.astype(int).reshape(-1)
     plt.figure()
     plt.hist(sigma_hist_vals)
@@ -786,6 +791,12 @@ def translate_obj(pts, minCorner, maxCorner):
     mids = (minCorner + maxCorner) / 2
     pts = pts - mids
     return pts
+
+
+def probs_to_semantic_3d(probs, N):
+    semantic_pred = torch.nn.Softmax(dim=2)(probs).max(dim=2).indices
+    semantic_pred = semantic_pred.detach().cpu().numpy().reshape((N, N, N))
+    return semantic_pred
 
 
 def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
@@ -809,6 +820,14 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     raw = network_query_fn(xyz_, dir_, network_fn)
     sigma = raw[..., 3].cpu().numpy().reshape((N, N, N))
     plot_sigmas(sigma, save_path, 'original_sigmas.png')
+    sigmas_filename = os.path.join(save_path, 'original_sigmas_%d.npy' % (N))
+    np.save(sigmas_filename, sigma)
+
+    if kwargs['semantic_en']:
+        semantic_map = probs_to_semantic_3d(raw[..., 4:], N)
+        plot_sigmas(semantic_map, save_path, 'original_semantics.png')
+        semantics_filename = os.path.join(save_path, 'original_semantics_%d.npy' % (N))
+        np.save(semantics_filename, semantic_map)
 
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
     z_vals = torch.Tensor(z).to(device).unsqueeze(0).repeat(N * N, 1)
@@ -817,6 +836,7 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
     weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]).cpu().numpy()
     alpha = alpha.cpu().numpy()
+
     plot_sigmas(alpha.reshape((N, N, N)), save_path, 'original_alphas.png')
     plot_sigmas(weights.reshape((N, N, N)), save_path, 'original_weights.png')
     alphas_filename = os.path.join(save_path, 'original_alphas_%d.npy' % (N))
@@ -827,7 +847,8 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     clustered_sigma = cluster(sigma, 2)
     plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
 
-    occ_inds = np.where(clustered_sigma > 0.5)
+    # occ_inds = np.where(clustered_sigma > 0.5)
+    occ_inds = np.where(semantic_map != 0)
     samples = np.stack(np.meshgrid(x, y, z), -1)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
     min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
@@ -845,6 +866,12 @@ def extract_mesh(N_samples, x_range, y_range, z_range, sigma_threshold, network_
     raw = network_query_fn(xyz_, dir_, network_fn)
     sigma = raw[..., 3].cpu().numpy().reshape((N, N, N))
     plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
+
+    if kwargs['semantic_en']:
+        semantic_map = probs_to_semantic_3d(raw[..., 4:], N)
+        plot_sigmas(semantic_map, save_path, 'semantics.png')
+        semantics_filename = os.path.join(save_path, 'semantics_%d.npy' % (N))
+        np.save(semantics_filename, semantic_map)
 
     pos_sigma_inds = np.where(sigma > 0)
     pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
@@ -1093,7 +1120,11 @@ def train():
         far = args.far
 
         if args.white_bkgd:
-            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+            # images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+            binary_masks = np.where(masks > 0, 1, 0)
+            binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
+            images = images[..., :3] * binary_masks + (1. - binary_masks)
+
         else:
             images = images[...,:3]
 
@@ -1329,6 +1360,9 @@ def train():
             semantic_loss = mask2entropy(extras['semantic_map'], target_sem_s.type(torch.LongTensor).cuda())
             loss = loss + args.semantic_wt * semantic_loss
 
+        rays_sparsity_loss = sigmas2loss(extras['raw'][..., 3], args.rays_sparsity_scale)
+        loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
+
         if 'rgb0' in extras:
             img_loss0 = img2mse(extras['rgb0'], target_s)
             loss = loss + args.rgb_wt * img_loss0
@@ -1383,6 +1417,7 @@ def train():
 
                 log_dict["Train RGB Loss"] = (img_loss + img_loss0).item()
                 log_dict["Train Semantic Loss"] = (semantic_loss + semantic_loss0).item()
+                log_dict["Train Rays Sparsity Loss"] = (rays_sparsity_loss).item()
                 log_dict["Rendered vs GT Train Semantic Mask"] = [wandb.Image(semantic_pred), wandb.Image(semantic_gt)]
 
             wandb.log(log_dict)
@@ -1457,6 +1492,9 @@ def train():
                         semantic_loss0 = mask2entropy(extras['semantic0'].reshape((H * W, -1)), target_sem.type(torch.LongTensor).cuda().reshape((H * W)))
                         loss = loss + args.semantic_wt * semantic_loss0
 
+                rays_sparsity_loss = sigmas2loss(extras['sigma_map'], args.rays_sparsity_scale)
+                loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
+
                 tqdm.write(f"[TRAIN] Iter: {i} Validation Loss: {loss.item()}  Validation PSNR: {psnr.item()}")
                 if args.wand_en:
                     log_dict = {
@@ -1478,6 +1516,7 @@ def train():
 
                         log_dict["Validation RGB Loss"] = (img_loss + img_loss0).item()
                         log_dict["Validation Semantic Loss"] = (semantic_loss + semantic_loss0).item()
+                        log_dict["Validation Rays Sparsity Loss"] = (rays_sparsity_loss).item()
                         log_dict["Rendered vs GT Semantic Mask"] = [wandb.Image(semantic_pred), wandb.Image(semantic_gt)]
 
                     wandb.log(log_dict)

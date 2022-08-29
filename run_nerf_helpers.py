@@ -9,6 +9,7 @@ import numpy as np
 img2mse = lambda x, y : torch.mean((x - y) ** 2)
 entropy_loss = nn.CrossEntropyLoss()
 mask2entropy = lambda x, y : entropy_loss(x, y)
+sigmas2loss = lambda x, scale, act_fn=F.relu : torch.sum(torch.mean(1. - torch.exp(-scale * act_fn(x)), axis=-1))
 mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 to8b = lambda x : (255*np.clip(x,0,1)).astype(np.uint8)
 
