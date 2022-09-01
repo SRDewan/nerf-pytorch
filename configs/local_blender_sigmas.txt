@@ -1,6 +1,6 @@
-expname = multi_obj_local_blender_semantic_1_rgb_10_lr_001_precrop_random_10_100_epochs_res_64_samples_32
+expname = multi_car_local_blender_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64
 basedir = ./logs
-datadir = /home2/shaurya.dewan/NOCs/data/blender_data/multi_obj_scene/
+datadir = /home2/anish.gupta/data/multi_car_scenes/scene_00/
 dataset_type = local_blender
 testskip = 1
 max_ind = 200
@@ -8,21 +8,23 @@ max_ind = 200
 render_only = True
 
 no_batching = True
-ft_path = ./logs/multi_obj_local_blender_semantic_1_rgb_10_lr_001_precrop_random_10_100_epochs_res_64_samples_32/028000.tar
+ft_path = ./logs/multi_car_local_blender_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64/032000.tar
 
 use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
-N_samples = 32
+N_samples = 128
 N_importance = 64
-N_rand = 4096
-lrate = 0.001
+N_rand = 1024 
+lrate = 0.0001
 semantic_en = True
-num_classes = 6
+num_classes = 5
 
-rgb_wt = 10
+rgb_wt = 1
 semantic_wt = 1
+rays_sparsity_wt = 0.001
+rays_sparsity_scale = 0.05
 
 precrop_iters = 2000
 precrop_frac = 0.5
