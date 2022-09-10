@@ -49,19 +49,61 @@ def cluster(sigmas, n_clusters=2):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="NeRF sigma mesh visualization")
     parser.add_argument("--input", required=True, type = str)
+    parser.add_argument("--class_id", default=1, type = int)
     parser.add_argument("--res", default=32, type = int)
     parser.add_argument("--num_samples", default=1000, type = int)
     parser.add_argument("--ground_truth", required=True, type = str)
     parser.add_argument("--max_files", default=10, type = int)
     parser.add_argument("--sigma_thresh", default=10.0, type = float)
+    parser.add_argument("--semantic_en", action='store_true')
     args = parser.parse_args()
 
     sigmas_path = os.path.join(args.input, "sigmas_%d.npy" % (args.res))
     samples_path = os.path.join(args.input, "samples_%d.npy" % (args.res))
-    semantics_path = os.path.join(args.input, "semantics_%d.npy" % (args.res))
     sigmas = np.load(sigmas_path).reshape((-1, 1))
     samples = np.load(samples_path).reshape((-1, 3))
-    semantics = np.load(semantics_path).reshape((-1, 1))
+    if args.semantic_en:
+        semantics_path = os.path.join(args.input, "semantics_%d.npy" % (args.res))
+        semantics = np.load(semantics_path).reshape((-1, 1))
+
+    occ = np.where(sigmas > args.sigma_thresh)[0]
+    print("Total = %d, Occupied = %d, Occupancy = %f" % (len(sigmas), len(occ), len(occ) / len(sigmas)))
+
+    thresh_pcd = o3d.geometry.PointCloud()
+    thresh_points = samples[np.where(sigmas > args.sigma_thresh)[0]]
+    thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
+    o3d.visualization.draw_geometries([thresh_pcd])
+
+    clustered_sigmas = cluster(sigmas, 2)
+    occ = np.where(clustered_sigmas != 0)[0]
+    print("Cluster Total = %d, Occupied = %d, Occupancy = %f" % (len(sigmas), len(occ), len(occ) / len(sigmas)))
+
+    thresh_pcd = o3d.geometry.PointCloud()
+    thresh_points = samples[np.where(clustered_sigmas != 0)[0]]
+    thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
+    o3d.visualization.draw_geometries([thresh_pcd])
+
+    thresh_pcd = o3d.geometry.PointCloud()
+    thresh_points = samples[np.where(np.logical_and(
+        sigmas.reshape(-1, 1) > args.sigma_thresh,
+        # semantics != 0,
+        semantics != 0))[0]]
+    thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
+    o3d.visualization.draw_geometries([thresh_pcd])
+
+    colors = labels_to_pallette(semantics)[np.where(np.logical_and(
+        sigmas.reshape(-1, 1) > args.sigma_thresh,
+        # semantics != 0,
+        semantics != 0))[0], :]
+    print(colors.shape, thresh_points.shape)
+    thresh_pcd.colors = o3d.utility.Vector3dVector(colors)
+    o3d.visualization.draw_geometries([thresh_pcd])
+
+
+    sigmas_path = os.path.join(args.input, "class%d_sigmas_32.npy" % (args.class_id))
+    samples_path = os.path.join(args.input, "class%d_samples_32.npy" % (args.class_id))
+    sigmas = np.load(sigmas_path).reshape((-1, 1))
+    samples = np.load(samples_path).reshape((-1, 3))
 
     occ = np.where(sigmas > args.sigma_thresh)[0]
     print("Total = %d, Occupied = %d, Occupancy = %f" % (len(sigmas), len(occ), len(occ) / len(sigmas)))

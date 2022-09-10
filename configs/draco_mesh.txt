@@ -1,12 +1,13 @@
-expname = 14_draco_32_samples_lr_0001_precrop_random_10_1000_epochs_res_64
+expname = 6_draco_32_samples_lr_0001_precrop_random_10_1000_epochs_res_64
 basedir = ./logs
-datadir = /home2/anish.gupta/data/DRACO20K_cars_small/b059f09a0b26d4b5cfc78902445ccff8/
+datadir = /home2/anish.gupta/data/DRACO20K_cars_small/3ddda21d4496fbc693680c5a9a367b4a/
 dataset_type = draco 
 
 render_only = True
 
 no_batching = True
-ft_path = /home2/shaurya.dewan/NOCs/nerf-pytorch/logs/14_draco_32_samples_lr_0001_precrop_random_10_1000_epochs_res_64/010000.tar
+ft_path = /home2/shaurya.dewan/NOCs/nerf-pytorch/logs/6_draco_32_samples_lr_0001_precrop_random_10_1000_epochs_res_64/036000.tar
+grad_en = True
 
 use_viewdirs = True
 white_bkgd = True

@@ -1,6 +1,6 @@
-expname = multi_car_local_blender_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64
+expname = 3_car_local_blender_01_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64
 basedir = ./logs
-datadir = /home2/anish.gupta/data/multi_car_scenes/scene_00/
+datadir = /home2/anish.gupta/data/3_car_scenes/scene_01/
 dataset_type = local_blender
 testskip = 1
 max_ind = 200
@@ -8,32 +8,35 @@ max_ind = 200
 render_only = True
 
 no_batching = True
-ft_path = ./logs/multi_car_local_blender_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64/032000.tar
+ft_path = ./logs/3_car_local_blender_01_rays_sparsity_001_scale_05_semantic_1_rgb_1_range_30_lr_0001_precrop_random_10_100_epochs_res_32_samples_128_64/024000.tar
+N_single_obj_samples = 32
 
 use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
-N_samples = 128
+N_samples = 32 
 N_importance = 64
 N_rand = 1024 
 lrate = 0.0001
 semantic_en = True
-num_classes = 5
+num_classes = 4
 
 rgb_wt = 1
 semantic_wt = 1
 rays_sparsity_wt = 0.001
 rays_sparsity_scale = 0.05
+semantic_rays_sparsity_wt = 0.0 # 0.001
+semantic_rays_sparsity_scale = 0.05
 
 precrop_iters = 2000
 precrop_frac = 0.5
 iters = 60000
 
-x_range = [-1.0, 1.0]
-y_range = [-1.0, 1.0]
-z_range = [-1.0, 1.0]
-sigma_threshold = 2
+x_range = [-1.5, 1.5]
+y_range = [-1.5, 1.5]
+z_range = [-1.5, 1.5]
+sigma_threshold = 3
 
 res = 1
 wand_en = False
