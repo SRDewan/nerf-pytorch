@@ -681,6 +681,10 @@ def config_parser():
     parser.add_argument("--raw_noise_std", type=float, default=0., 
                         help='std dev of noise added to regularize sigma_a output, 1e0 recommended')
 
+    parser.add_argument("--multi_scene", action='store_true', 
+                        help='render multiple scenes')
+    parser.add_argument("--root_dir", type=str, default='./brics_logs/', 
+                        help='path to directory containing all the scenes to be rendered')
     parser.add_argument("--render_only", action='store_true', 
                         help='do not optimize, reload weights and render out render_poses path')
     parser.add_argument("--render_test", action='store_true', 
@@ -802,6 +806,7 @@ def cluster(sigmas, n_clusters=2):
 
 
 def plot_sigmas(sigmas, save_path, plot_file_name):
+    return
     print(plot_file_name)
     sigma_hist_vals = sigmas.astype(int).reshape(-1)
     plt.figure()
@@ -992,7 +997,8 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
 
             extract_single_obj_sigmas(samples, clustered_sigma, semantic_map, 0.5, classes[i], kwargs['N_single_obj_samples'], network_query_fn, network_fn, save_path) 
 
-    occ_inds = np.where(sigma > sigma_threshold)
+    # occ_inds = np.where(sigma > sigma_threshold)
+    occ_inds = np.where(clustered_sigma > 0)
     if kwargs['semantic_en']:
         occ_inds = np.where(np.logical_and(sigma > sigma_threshold, semantic_map != 0))
     samples = np.stack(np.meshgrid(x, y, z), -1)
@@ -1073,163 +1079,160 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
     np.save(samples_filename, samples)
 
     # perform marching cube algorithm to retrieve vertices and triangle mesh
-    print('Extracting mesh ...')
-    vertices, triangles = mcubes.marching_cubes(sigma, sigma_threshold)
+    # print('Extracting mesh ...')
+    # vertices, triangles = mcubes.marching_cubes(sigma, sigma_threshold)
 
-    ##### Until mesh extraction here, it is the same as the original repo. ######
+    # ##### Until mesh extraction here, it is the same as the original repo. ######
 
-    vertices_ = (vertices/N).astype(np.float32)
-    ## invert x and y coordinates (WHY? maybe because of the marching cubes algo)
-    x_ = (max_pt[1]-min_pt[1]) * vertices_[:, 1] + min_pt[1]
-    y_ = (max_pt[0]-min_pt[0]) * vertices_[:, 0] + min_pt[0]
-    vertices_[:, 0] = x_
-    vertices_[:, 1] = y_
-    vertices_[:, 2] = (zmax-zmin) * vertices_[:, 2] + zmin
-    vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    # vertices_ = (vertices/N).astype(np.float32)
+    # ## invert x and y coordinates (WHY? maybe because of the marching cubes algo)
+    # x_ = (max_pt[1]-min_pt[1]) * vertices_[:, 1] + min_pt[1]
+    # y_ = (max_pt[0]-min_pt[0]) * vertices_[:, 0] + min_pt[0]
+    # vertices_[:, 0] = x_
+    # vertices_[:, 1] = y_
+    # vertices_[:, 2] = (zmax-zmin) * vertices_[:, 2] + zmin
+    # vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
 
-    face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
-    face['vertex_indices'] = triangles
+    # face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
+    # face['vertex_indices'] = triangles
 
-    PlyData([PlyElement.describe(vertices_[:, 0], 'vertex'),
-             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_{sigma_threshold}_{N}.ply')
+    # PlyData([PlyElement.describe(vertices_[:, 0], 'vertex'),
+             # PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_{sigma_threshold}_{N}.ply')
 
-    # remove noise in the mesh by keeping only the biggest cluster
-    print('Removing noise ...')
-    mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh_{sigma_threshold}_{N}.ply")
-    idxs, count, _ = mesh.cluster_connected_triangles()
-    max_cluster_idx = np.argmax(count)
-    triangles_to_remove = [i for i in range(len(face)) if idxs[i] != max_cluster_idx]
-    mesh.remove_triangles_by_index(triangles_to_remove)
-    mesh.remove_unreferenced_vertices()
-    print(f'Mesh has {len(mesh.vertices):.2f} vertices and {len(mesh.triangles):.2f} faces.')
-    print(f'Mesh has {len(mesh.vertices)/1e6:.2f} M vertices and {len(mesh.triangles)/1e6:.2f} M faces.')
+    # # remove noise in the mesh by keeping only the biggest cluster
+    # print('Removing noise ...')
+    # mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh_{sigma_threshold}_{N}.ply")
+    # idxs, count, _ = mesh.cluster_connected_triangles()
+    # max_cluster_idx = np.argmax(count)
+    # triangles_to_remove = [i for i in range(len(face)) if idxs[i] != max_cluster_idx]
+    # mesh.remove_triangles_by_index(triangles_to_remove)
+    # mesh.remove_unreferenced_vertices()
+    # print(f'Mesh has {len(mesh.vertices):.2f} vertices and {len(mesh.triangles):.2f} faces.')
+    # print(f'Mesh has {len(mesh.vertices)/1e6:.2f} M vertices and {len(mesh.triangles)/1e6:.2f} M faces.')
 
-    vertices_ = np.asarray(mesh.vertices).astype(np.float32)
-    triangles = np.asarray(mesh.triangles)
+    # vertices_ = np.asarray(mesh.vertices).astype(np.float32)
+    # triangles = np.asarray(mesh.triangles)
 
-    # perform color prediction
-    # Step 0. define constants (image width, height and intrinsics)
-    # W, H = args.img_wh
-    # K = np.array([[dataset.focal, 0, W/2],
-                  # [0, dataset.focal, H/2],
-                  # [0,             0,   1]]).astype(np.float32)
+    # # perform color prediction
+    # # Step 0. define constants (image width, height and intrinsics)
+    # # W, H = args.img_wh
+    # # K = np.array([[dataset.focal, 0, W/2],
+                  # # [0, dataset.focal, H/2],
+                  # # [0,             0,   1]]).astype(np.float32)
 
-    # Step 1. transform vertices into world coordinate
-    N_vertices = len(vertices_)
-    vertices_homo = np.concatenate([vertices_, np.ones((N_vertices, 1))], 1) # (N, 4)
+    # # Step 1. transform vertices into world coordinate
+    # N_vertices = len(vertices_)
+    # vertices_homo = np.concatenate([vertices_, np.ones((N_vertices, 1))], 1) # (N, 4)
 
-    if use_vertex_normal: ## use normal vector method as suggested by the author.
-                               ## see https://github.com/bmild/nerf/issues/44
-        mesh.compute_vertex_normals()
-        rays_d = torch.FloatTensor(np.asarray(mesh.vertex_normals))
-        near = min_b * torch.ones_like(rays_d[:, :1])
-        far = max_b * torch.ones_like(rays_d[:, :1])
-        rays_o = torch.FloatTensor(vertices_) - rays_d * near * near_t
-        rays = [rays_o, rays_d]
+    # if use_vertex_normal: ## use normal vector method as suggested by the author.
+                               # ## see https://github.com/bmild/nerf/issues/44
+        # mesh.compute_vertex_normals()
+        # rays_d = torch.FloatTensor(np.asarray(mesh.vertex_normals))
+        # near = min_b * torch.ones_like(rays_d[:, :1])
+        # far = max_b * torch.ones_like(rays_d[:, :1])
+        # rays_o = torch.FloatTensor(vertices_) - rays_d * near * near_t
+        # rays = [rays_o, rays_d]
 
-        rgb, disp, acc, extras = render(0, 0, [[]], chunk=1024*32, rays=rays,
-                                        **kwargs)
+        # rgb, disp, acc, extras = render(0, 0, [[]], chunk=1024*32, rays=rays,
+                                        # **kwargs)
 
-    else: ## use my color average method. see README_mesh.md
-        ## buffers to store the final averaged color
-        non_occluded_sum = np.zeros((N_vertices, 1))
-        v_color_sum = np.zeros((N_vertices, 3))
+    # else: ## use my color average method. see README_mesh.md
+        # ## buffers to store the final averaged color
+        # non_occluded_sum = np.zeros((N_vertices, 1))
+        # v_color_sum = np.zeros((N_vertices, 3))
 
-        # Step 2. project the vertices onto each training image to infer the color
-        print('Fusing colors ...')
-        for idx in tqdm(range(len(dataset.image_paths))):
-            ## read image of this pose
-            image = Image.open(dataset.image_paths[idx]).convert('RGB')
-            image = image.resize(tuple(args.img_wh), Image.LANCZOS)
-            image = np.array(image)
+        # # Step 2. project the vertices onto each training image to infer the color
+        # print('Fusing colors ...')
+        # for idx in tqdm(range(len(dataset.image_paths))):
+            # ## read image of this pose
+            # image = Image.open(dataset.image_paths[idx]).convert('RGB')
+            # image = image.resize(tuple(args.img_wh), Image.LANCZOS)
+            # image = np.array(image)
 
-            ## read the camera to world relative pose
-            P_c2w = np.concatenate([dataset.poses[idx], np.array([0, 0, 0, 1]).reshape(1, 4)], 0)
-            P_w2c = np.linalg.inv(P_c2w)[:3] # (3, 4)
-            ## project vertices from world coordinate to camera coordinate
-            vertices_cam = (P_w2c @ vertices_homo.T) # (3, N) in "right up back"
-            vertices_cam[1:] *= -1 # (3, N) in "right down forward"
-            ## project vertices from camera coordinate to pixel coordinate
-            vertices_image = (K @ vertices_cam).T # (N, 3)
-            depth = vertices_image[:, -1:]+1e-5 # the depth of the vertices, used as far plane
-            vertices_image = vertices_image[:, :2]/depth
-            vertices_image = vertices_image.astype(np.float32)
-            vertices_image[:, 0] = np.clip(vertices_image[:, 0], 0, W-1)
-            vertices_image[:, 1] = np.clip(vertices_image[:, 1], 0, H-1)
+            # ## read the camera to world relative pose
+            # P_c2w = np.concatenate([dataset.poses[idx], np.array([0, 0, 0, 1]).reshape(1, 4)], 0)
+            # P_w2c = np.linalg.inv(P_c2w)[:3] # (3, 4)
+            # ## project vertices from world coordinate to camera coordinate
+            # vertices_cam = (P_w2c @ vertices_homo.T) # (3, N) in "right up back"
+            # vertices_cam[1:] *= -1 # (3, N) in "right down forward"
+            # ## project vertices from camera coordinate to pixel coordinate
+            # vertices_image = (K @ vertices_cam).T # (N, 3)
+            # depth = vertices_image[:, -1:]+1e-5 # the depth of the vertices, used as far plane
+            # vertices_image = vertices_image[:, :2]/depth
+            # vertices_image = vertices_image.astype(np.float32)
+            # vertices_image[:, 0] = np.clip(vertices_image[:, 0], 0, W-1)
+            # vertices_image[:, 1] = np.clip(vertices_image[:, 1], 0, H-1)
 
-            ## compute the color on these projected pixel coordinates
-            ## using bilinear interpolation.
-            ## NOTE: opencv's implementation has a size limit of 32768 pixels per side,
-            ## so we split the input into chunks.
-            colors = []
-            remap_chunk = int(3e4)
-            for i in range(0, N_vertices, remap_chunk):
-                colors += [cv2.remap(image,
-                                    vertices_image[i:i+remap_chunk, 0],
-                                    vertices_image[i:i+remap_chunk, 1],
-                                    interpolation=cv2.INTER_LINEAR)[:, 0]]
-            colors = np.vstack(colors) # (N_vertices, 3)
+            # ## compute the color on these projected pixel coordinates
+            # ## using bilinear interpolation.
+            # ## NOTE: opencv's implementation has a size limit of 32768 pixels per side,
+            # ## so we split the input into chunks.
+            # colors = []
+            # remap_chunk = int(3e4)
+            # for i in range(0, N_vertices, remap_chunk):
+                # colors += [cv2.remap(image,
+                                    # vertices_image[i:i+remap_chunk, 0],
+                                    # vertices_image[i:i+remap_chunk, 1],
+                                    # interpolation=cv2.INTER_LINEAR)[:, 0]]
+            # colors = np.vstack(colors) # (N_vertices, 3)
 
-            ## predict occlusion of each vertex
-            ## we leverage the concept of NeRF by constructing rays coming out from the camera
-            ## and hitting each vertex; by computing the accumulated opacity along this path,
-            ## we can know if the vertex is occluded or not.
-            ## for vertices that appear to be occluded from every input view, we make the
-            ## assumption that its color is the same as its neighbors that are facing our side.
-            ## (think of a surface with one side facing us: we assume the other side has the same color)
+            # ## predict occlusion of each vertex
+            # ## we leverage the concept of NeRF by constructing rays coming out from the camera
+            # ## and hitting each vertex; by computing the accumulated opacity along this path,
+            # ## we can know if the vertex is occluded or not.
+            # ## for vertices that appear to be occluded from every input view, we make the
+            # ## assumption that its color is the same as its neighbors that are facing our side.
+            # ## (think of a surface with one side facing us: we assume the other side has the same color)
 
-            ## ray's origin is camera origin
-            rays_o = torch.FloatTensor(dataset.poses[idx][:, -1]).expand(N_vertices, 3)
-            ## ray's direction is the vector pointing from camera origin to the vertices
-            rays_d = torch.FloatTensor(vertices_) - rays_o # (N_vertices, 3)
-            rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
-            near = dataset.bounds.min() * torch.ones_like(rays_o[:, :1])
-            ## the far plane is the depth of the vertices, since what we want is the accumulated
-            ## opacity along the path from camera origin to the vertices
-            far = torch.FloatTensor(depth) * torch.ones_like(rays_o[:, :1])
-            results = f([nerf_fine], embeddings,
-                        torch.cat([rays_o, rays_d, near, far], 1).cuda(),
-                        args.N_samples,
-                        0,
-                        args.chunk,
-                        dataset.white_back)
-            opacity = results['opacity_coarse'].detach().cpu().numpy()[:, np.newaxis] # (N_vertices, 1)
-            opacity = np.nan_to_num(opacity, 1)
+            # ## ray's origin is camera origin
+            # rays_o = torch.FloatTensor(dataset.poses[idx][:, -1]).expand(N_vertices, 3)
+            # ## ray's direction is the vector pointing from camera origin to the vertices
+            # rays_d = torch.FloatTensor(vertices_) - rays_o # (N_vertices, 3)
+            # rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
+            # near = dataset.bounds.min() * torch.ones_like(rays_o[:, :1])
+            # ## the far plane is the depth of the vertices, since what we want is the accumulated
+            # ## opacity along the path from camera origin to the vertices
+            # far = torch.FloatTensor(depth) * torch.ones_like(rays_o[:, :1])
+            # results = f([nerf_fine], embeddings,
+                        # torch.cat([rays_o, rays_d, near, far], 1).cuda(),
+                        # args.N_samples,
+                        # 0,
+                        # args.chunk,
+                        # dataset.white_back)
+            # opacity = results['opacity_coarse'].detach().cpu().numpy()[:, np.newaxis] # (N_vertices, 1)
+            # opacity = np.nan_to_num(opacity, 1)
 
-            non_occluded = np.ones_like(non_occluded_sum) * 0.1/depth # weight by inverse depth
-                                                                    # near=more confident in color
-            non_occluded += opacity < args.occ_threshold
+            # non_occluded = np.ones_like(non_occluded_sum) * 0.1/depth # weight by inverse depth
+                                                                    # # near=more confident in color
+            # non_occluded += opacity < args.occ_threshold
 
-            v_color_sum += colors * non_occluded
-            non_occluded_sum += non_occluded
+            # v_color_sum += colors * non_occluded
+            # non_occluded_sum += non_occluded
 
-    # Step 3. combine the output and write to file
-    if use_vertex_normal:
-        v_colors = rgb.detach().cpu().numpy() * 255.0
-    else: ## the combined color is the average color among all views
-        v_colors = v_color_sum/non_occluded_sum
-    v_colors = v_colors.astype(np.uint8)
-    v_colors.dtype = [('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
-    vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-    vertex_all = np.empty(N_vertices, vertices_.dtype.descr+v_colors.dtype.descr)
-    for prop in vertices_.dtype.names:
-        vertex_all[prop] = vertices_[prop][:, 0]
-    for prop in v_colors.dtype.names:
-        vertex_all[prop] = v_colors[prop][:, 0]
+    # # Step 3. combine the output and write to file
+    # if use_vertex_normal:
+        # v_colors = rgb.detach().cpu().numpy() * 255.0
+    # else: ## the combined color is the average color among all views
+        # v_colors = v_color_sum/non_occluded_sum
+    # v_colors = v_colors.astype(np.uint8)
+    # v_colors.dtype = [('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+    # vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    # vertex_all = np.empty(N_vertices, vertices_.dtype.descr+v_colors.dtype.descr)
+    # for prop in vertices_.dtype.names:
+        # vertex_all[prop] = vertices_[prop][:, 0]
+    # for prop in v_colors.dtype.names:
+        # vertex_all[prop] = v_colors[prop][:, 0]
 
-    face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
-    face['vertex_indices'] = triangles
+    # face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
+    # face['vertex_indices'] = triangles
 
-    PlyData([PlyElement.describe(vertex_all, 'vertex'),
-             PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored_{sigma_threshold}_{N}.ply')
+    # PlyData([PlyElement.describe(vertex_all, 'vertex'),
+             # PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored_{sigma_threshold}_{N}.ply')
 
     print('Done!')
 
 
-def train():
-
-    parser = config_parser()
-    args = parser.parse_args()
+def train(args):
 
     # Load data
     K = None
@@ -1344,9 +1347,9 @@ def train():
 
         if args.white_bkgd:
             images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
-            # binary_masks = np.where(masks > 0, 1, 0)
-            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
-            # images = images[..., :3] * binary_masks + (1. - binary_masks)
+            binary_masks = np.where(masks > 0, 1, 0)
+            binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
+            images = images[..., :3] * binary_masks + (1. - binary_masks)
 
         else:
             images = images[..., :3]
@@ -1416,10 +1419,10 @@ def train():
             rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
         else:
             extract_sigmas(args.N_samples, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
-            rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+            # rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
 
         print('Done rendering', testsavedir)
-        imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
+        # imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
         return
 
@@ -1783,4 +1786,16 @@ if __name__=='__main__':
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     torch.cuda.set_device(device_idx)
 
-    train()
+    parser = config_parser()
+    args = parser.parse_args()
+
+    if args.multi_scene and args.render_only:
+        for dir_name in os.listdir(args.root_dir):
+            args.expname = dir_name
+            model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
+            args.datadir = "/home2/anshkhndelwal/brics-simulator/renderings/shapenet/plane/%s/" % (model_name)
+            args.ft_path = os.path.join(args.root_dir, dir_name, "010800.tar")
+            train(args)
+
+    else:
+        train(args)
