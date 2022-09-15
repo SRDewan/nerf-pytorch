@@ -1,6 +1,6 @@
-expname = brics_testing
-basedir = ./logs
-datadir = /home2/anshkhndelwal/brics-simulator/renderings/shapenet/plane/02691156_14bf5197d60d733f2a3ecc4a9713cabb/
+expname = brics_plane_02691156_151550551758af098b96ae1a0a8b84ec_vanilla
+basedir = ./brics_logs
+datadir = /home2/anshkhndelwal/brics-simulator/renderings/shapenet/plane/02691156_151550551758af098b96ae1a0a8b84ec/
 dataset_type = brics 
 testskip = 1
 max_ind = 54
@@ -11,8 +11,8 @@ use_viewdirs = True
 white_bkgd = True
 lrate_decay = 500
 
-N_samples = 128
-N_importance = 64 
+N_samples = 64
+N_importance = 128
 near = 0.1
 far = 20.0
 N_rand = 1024
@@ -27,12 +27,12 @@ rays_sparsity_scale = 0.05
 semantic_rays_sparsity_wt = 0.0 # 0.001
 semantic_rays_sparsity_scale = 0.05
 
-precrop_iters = 500
+precrop_iters = 540
 precrop_frac = 0.5
-iters = 10000
+iters = 10800
 
 res = 1
-wand_en = False
-i_print = 50
-i_img = 50
-i_weights = 1000
+wand_en = True
+i_print = 54
+i_img = 54
+i_weights = 1080
