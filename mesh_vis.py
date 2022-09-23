@@ -102,10 +102,10 @@ if __name__=="__main__":
     if args.multi_scene:
         for path, dirs, files in os.walk(args.input):
             for file in files:
-                if "sigmas_%d.npy" % (args.res) not in file:
+                if "sigmas_%d.npy" % (args.res) != file:
                     continue
 
-                print("Processing %s" % (file))
+                print("Processing %s %s" % (path, file))
                 sigmas_path = os.path.join(path, file)
                 samples_path = os.path.join(path, file.replace("sigmas", "samples"))
                 semantics_path = None
