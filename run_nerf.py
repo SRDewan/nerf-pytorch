@@ -1347,9 +1347,9 @@ def train(args):
 
         if args.white_bkgd:
             images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
-            binary_masks = np.where(masks > 0, 1, 0)
-            binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
-            images = images[..., :3] * binary_masks + (1. - binary_masks)
+            # binary_masks = np.where(masks > 0, 1, 0)
+            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
+            # images = images[..., :3] * binary_masks + (1. - binary_masks)
 
         else:
             images = images[..., :3]

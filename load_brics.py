@@ -126,12 +126,15 @@ def pallette_to_labels(mask):
 
 def load_brics_data(basedir, res=1, skip=1, max_ind=54):
     imgs, cams = main_loader(basedir, res)
+    all_ids = []
     all_imgs = []
     all_poses = []
     all_seg_masks = []
     all_depths = []
 
     for index in range(0, max_ind, skip):
+        all_ids.append(imgs[index]["camera_id"])
+
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
         h, w = n_image.shape[:2]
         resized_h = round(h * res)
@@ -157,11 +160,17 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54):
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
 
+    i_val = []
+    sides = ["back", "bottom", "front", "left", "right", "top"]
+    for side_idx in range(len(sides)):
+        panel_idx = np.random.randint(1, 10) 
+        val_camera_id = "%s_%d" % (sides[side_idx], panel_idx)
+        val_idx = all_ids.index(val_camera_id)
+        i_val.append(val_idx)
+
     indices = np.arange(len(all_imgs))
-    i_train = np.random.choice(indices, round(0.8 * len(all_imgs)), replace=False)
-    indices = np.array(list(set(indices).difference(set(i_train))))
-    i_val = np.random.choice(indices, round(0.1 * len(all_imgs)), replace=False)
-    i_test = np.array(list(set(indices).difference(set(i_val))))
+    i_train = np.array(list(set(indices).difference(set(i_val))))
+    i_test = i_val
     i_split = [i_train, i_val, i_test]
 
     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)

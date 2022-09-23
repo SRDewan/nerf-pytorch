@@ -1,6 +1,6 @@
-expname = brics_plane_02691156_151550551758af098b96ae1a0a8b84ec_vanilla
+expname = brics_car_02958343_133b51a2dcecd83c7c3c6f82a395b347_vanilla
 basedir = ./brics_logs
-datadir = /home2/anshkhndelwal/brics-simulator/renderings/shapenet/plane/02691156_151550551758af098b96ae1a0a8b84ec/
+datadir = /home2/anshkhndelwal/brics-simulator/renderings/shapenet/car/02958343_133b51a2dcecd83c7c3c6f82a395b347_rotation1/
 dataset_type = brics 
 testskip = 1
 max_ind = 54
@@ -27,12 +27,12 @@ rays_sparsity_scale = 0.05
 semantic_rays_sparsity_wt = 0.0 # 0.001
 semantic_rays_sparsity_scale = 0.05
 
-precrop_iters = 540
+precrop_iters = 480
 precrop_frac = 0.5
-iters = 10800
+iters = 9600
 
 res = 1
-wand_en = True
-i_print = 54
-i_img = 54
-i_weights = 1080
+wand_en = False
+i_print = 48
+i_img = 48
+i_weights = 960

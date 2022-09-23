@@ -8,3 +8,4 @@
 data/*
 logs/*
 wandb/*
+brics_logs/
