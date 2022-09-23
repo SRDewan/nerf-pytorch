@@ -152,6 +152,7 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54):
 
         n_depth = np.load(imgs[index]["depth_path"])['arr_0']
         n_depth = np.where(n_depth == np.inf, 0, n_depth)
+        n_depth = np.where(n_depth > 100, 0, n_depth)
         n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         all_depths.append(n_depth)
     
