@@ -1792,9 +1792,10 @@ if __name__=='__main__':
     if args.multi_scene and args.render_only:
         for dir_name in os.listdir(args.root_dir):
             args.expname = dir_name
+            category_name = dir_name.split("_")[1]
             model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
-            args.datadir = "/home2/anshkhndelwal/brics-simulator/renderings/shapenet/plane/%s/" % (model_name)
-            args.ft_path = os.path.join(args.root_dir, dir_name, "010800.tar")
+            args.datadir = "/home2/anshkhndelwal/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
+            args.ft_path = os.path.join(args.root_dir, dir_name, f"{args.iters:06d}.tar")
             train(args)
 
     else:
