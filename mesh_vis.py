@@ -29,16 +29,25 @@ def labels_to_pallette(mask, tensor = False):
 
     return result
 
-def cluster(sigmas, n_clusters=2):
-    print(n_clusters)
+def cluster_sigmas(sigmas, n_clusters=2, power=1.0, exp=False, scale=1.0):
+    print("Number of clusters = ", n_clusters)
     # dim, _, _ = sigmas.shape
     # sigmas = sigmas.reshape((-1, 1))
-    sigmas = sigmas + 1e2
+    # sigmas = sigmas + 1e2
+
+    print("Sigmas range = ", np.min(sigmas), np.max(sigmas))
+    relu_sigmas = np.where(sigmas > 0, sigmas, 0)
+    powered_sigmas = relu_sigmas ** power
+    print("Sigmas powered range = ", np.min(powered_sigmas), np.max(powered_sigmas))
+    if exp:
+        sigmas = 1. - np.exp(-scale * powered_sigmas)
+    print("Sigmas final range = ", np.min(sigmas), np.max(sigmas))
 
     # model = GaussianMixture(n_components=2,init_params="k-means++",weights_init=[0.9,0.1])
     model = KMeans(init="k-means++", n_clusters=n_clusters)
-
     model.fit(sigmas)
+    print("Cluster centers = ", model.cluster_centers_)
+
     labels = model.predict(sigmas)
     (clusters, counts) = np.unique(labels, return_counts=True)
     bg_label = clusters[np.where(counts == counts.max())[0]]
@@ -46,24 +55,44 @@ def cluster(sigmas, n_clusters=2):
     return clustered_sigmas
 # .reshape((dim, dim, dim))
 
+def cluster_points(points, ref_point):
+    tol = 5
+    prev_inertia = -1
+    for n_clusters in range(1, 11):
+        print("Number of clusters = ", n_clusters)
+
+        model = KMeans(init="k-means++", n_clusters=n_clusters)
+        model.fit(points)
+        print("Cluster centers = ", model.cluster_centers_)
+        inertia = model.inertia_
+
+        labels = model.predict(sigmas)
+        (clusters, counts) = np.unique(labels, return_counts=True)
+        bg_label = clusters[np.where(counts == counts.max())[0]]
+        clustered_sigmas = np.where(labels == bg_label, 0, 1)
+
+        labels = model.predict(sigmas)
+    return clustered_sigmas
+
 def visualize(sigmas_path, samples_path, sigma_thresh, semantics_path=None):
     sigmas = np.load(sigmas_path).reshape((-1, 1))
     samples = np.load(samples_path).reshape((-1, 3))
 
-    occ = np.where(sigmas > sigma_thresh)[0]
-    print("Thresholding with %f: Total = %d, Occupied = %d, Occupancy = %f" % (sigma_thresh, len(sigmas), len(occ), len(occ) / len(sigmas)))
+    # occ = np.where(sigmas > sigma_thresh)[0]
+    # print("Thresholding with %f: Total = %d, Occupied = %d, Occupancy = %f" % (sigma_thresh, len(sigmas), len(occ), len(occ) / len(sigmas)))
 
-    thresh_pcd = o3d.geometry.PointCloud()
-    thresh_points = samples[np.where(sigmas > sigma_thresh)[0]]
-    thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
-    o3d.visualization.draw_geometries([thresh_pcd])
+    # thresh_pcd = o3d.geometry.PointCloud()
+    # thresh_points = samples[np.where(sigmas > sigma_thresh)[0]]
+    # thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
+    # o3d.visualization.draw_geometries([thresh_pcd])
 
-    clustered_sigmas = cluster(sigmas, 2)
+    clustered_sigmas = cluster_sigmas(sigmas, 2, 2.0, True, 0.3109375)
     occ = np.where(clustered_sigmas != 0)[0]
     print("Clustering: Total = %d, Occupied = %d, Occupancy = %f" % (len(sigmas), len(occ), len(occ) / len(sigmas)))
 
     thresh_pcd = o3d.geometry.PointCloud()
     thresh_points = samples[np.where(clustered_sigmas != 0)[0]]
+    # clustered_points = cluster_points(thresh_points, samples[len(samples) // 2])
     thresh_pcd.points = o3d.utility.Vector3dVector(thresh_points)
     o3d.visualization.draw_geometries([thresh_pcd])
 
