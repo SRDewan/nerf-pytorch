@@ -788,6 +788,18 @@ def get_coords(minCoord, maxCoord, sampleCtr=128):
     return pcd, coords
 
 
+def get_random_coords(min_coord, max_coord, sample_ctr=128):
+    random_coords = set()
+    while len(random_coords) != sample_ctr:
+        x = np.random.uniform(min_coord[0], max_coord[0])
+        y = np.random.uniform(min_coord[1], max_coord[1])
+        z = np.random.uniform(min_coord[2], max_coord[2])
+        random_coords.add((x, y, z))
+
+    random_coords = np.array(list(random_coords))
+    return random_coords
+
+
 def cluster(sigmas, n_clusters=2):
     print("Number of clusters = ", n_clusters)
     dim, _, _ = sigmas.shape
@@ -817,9 +829,9 @@ def plot_sigmas(sigmas, save_path, plot_file_name):
     plt.savefig(fig_file_path)
 
 
-def translate_obj(pts, minCorner, maxCorner):
-    mids = (minCorner + maxCorner) / 2
-    pts = pts - mids
+def translate_obj(pts):
+    mean = np.mean(pts, axis=0)
+    pts = pts - mean
     return pts
 
 
@@ -905,7 +917,7 @@ def extract_single_obj_sigmas(samples, sigmas, semantic_map, sigma_threshold, cl
     np.save(sigmas_filename, class_sigmas)
 
     class_samples = coords.reshape((-1, 3))
-    class_samples = translate_obj(class_samples, min_pt, max_pt)
+    class_samples = translate_obj(class_samples)
     min_corner = np.array([np.min(class_samples[:, 0]), np.min(class_samples[:, 1]), np.min(class_samples[:, 2])])
     max_corner = np.array([np.max(class_samples[:, 0]), np.max(class_samples[:, 1]), np.max(class_samples[:, 2])])
     class_samples = class_samples / max_corner
@@ -1007,6 +1019,7 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
     max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
     min_pt, max_pt = get_max_cube(min_corner, max_corner)
     box_pcd, coords = get_coords(min_pt, max_pt, N)
+    random_coords = get_random_coords(min_pt, max_pt, N ** 3)
     print(min_corner, max_corner, min_pt, max_pt)
 
     xyz_ = torch.FloatTensor(coords.reshape(N ** 2, N, 3)).cuda()
@@ -1027,12 +1040,28 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
         grads_filename = os.path.join(save_path, 'grads_%d.npy' % (N_samples))
         np.save(grads_filename, gradients)
 
+        xyz_ = torch.FloatTensor(random_coords.reshape(N ** 2, N, 3)).cuda()
+        xyz_.requires_grad = True
+        random_raw = network_query_fn(xyz_, dir_, network_fn)
+        grd = torch.ones(random_raw[..., 3].shape)
+        random_raw[..., 3].backward(gradient = grd)
+        gradients = xyz_.grad
+        gradients = gradients.detach().cpu().numpy().reshape((N_samples, N_samples, N_samples, 3))
+        xyz_.grad.zero_()
+
+        grads_filename = os.path.join(save_path, 'random_grads_%d.npy' % (N_samples))
+        np.save(grads_filename, gradients)
+
     else:
         with torch.no_grad():
             raw = network_query_fn(xyz_, dir_, network_fn)
 
+            xyz_ = torch.FloatTensor(random_coords.reshape(N ** 2, N, 3)).cuda()
+            random_raw = network_query_fn(xyz_, dir_, network_fn)
+
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
+    random_sigma = random_raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
     plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
 
     pos_sigma_inds = np.where(sigma > 0)
@@ -1045,6 +1074,8 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
 
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
+    random_sigmas_filename = os.path.join(save_path, 'random_sigmas_%d.npy' % (N))
+    np.save(random_sigmas_filename, random_sigma)
 
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
     z_vals = torch.Tensor(coords[..., 2]).to(device).reshape((N * N, N))
@@ -1070,13 +1101,22 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
         np.save(semantics_filename, semantic_map)
 
     samples = coords.reshape((-1, 3))
-    samples = translate_obj(samples, min_pt, max_pt)
+    samples = translate_obj(samples)
     min_corner = np.array([np.min(samples[:, 0]), np.min(samples[:, 1]), np.min(samples[:, 2])])
     max_corner = np.array([np.max(samples[:, 0]), np.max(samples[:, 1]), np.max(samples[:, 2])])
     samples = samples / max_corner
     samples = samples.reshape((N, N, N, 3))
     samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
+
+    random_samples = random_coords.reshape((-1, 3))
+    random_samples = translate_obj(random_samples)
+    min_corner = np.array([np.min(random_samples[:, 0]), np.min(random_samples[:, 1]), np.min(random_samples[:, 2])])
+    max_corner = np.array([np.max(random_samples[:, 0]), np.max(random_samples[:, 1]), np.max(random_samples[:, 2])])
+    # random_samples = random_samples / np.abs(max_corner)
+    random_samples = random_samples.reshape((N, N, N, 3))
+    random_samples_filename = os.path.join(save_path, 'random_samples_%d.npy' % (N))
+    np.save(random_samples_filename, random_samples)
 
     # perform marching cube algorithm to retrieve vertices and triangle mesh
     # print('Extracting mesh ...')
@@ -1794,8 +1834,11 @@ if __name__=='__main__':
             args.expname = dir_name
             category_name = dir_name.split("_")[1]
             model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
-            args.datadir = "/home2/anshkhndelwal/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
+            args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
             args.ft_path = os.path.join(args.root_dir, dir_name, f"{args.iters:06d}.tar")
+            if not os.path.exists(args.ft_path):
+                print("Skipping %s!" % (dir_name))
+                continue
             train(args)
 
     else:
