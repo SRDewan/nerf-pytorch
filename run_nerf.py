@@ -800,12 +800,18 @@ def get_random_coords(min_coord, max_coord, sample_ctr=128):
     return random_coords
 
 
-def cluster(sigmas, n_clusters=2):
+def cluster(sigmas, n_clusters=2, power=2.0, scale=1.0):
     print("Number of clusters = ", n_clusters)
     dim, _, _ = sigmas.shape
     sigmas = sigmas.reshape((-1, 1))
-    sigmas = sigmas + 1e2
-  
+    #sigmas = sigmas + 1e2
+
+    relu_sigmas = np.where(sigmas > 0, sigmas, 0)
+    powered_sigmas = relu_sigmas ** power
+    print("Sigmas powered range = ", np.min(powered_sigmas), np.max(powered_sigmas))
+    sigmas = 1. - np.exp(-scale * powered_sigmas)
+    print("Sigmas final range = ", np.min(sigmas), np.max(sigmas))
+
     # model = GaussianMixture(n_components=2,init_params="k-means++",weights_init=[0.9,0.1])
     model = KMeans(init="k-means++", n_clusters=n_clusters)
     
