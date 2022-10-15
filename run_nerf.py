@@ -1064,9 +1064,7 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     else:
         with torch.no_grad():
             raw = network_query_fn(xyz_, dir_, network_fn)
-
-            xyz_ = torch.FloatTensor(random_coords.reshape(N ** 2, N, 3)).cuda()
-            random_raw = network_query_fn(xyz_, dir_, network_fn)
+            random_raw = network_query_fn(random_xyz_, random_dir_, network_fn)
 
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
