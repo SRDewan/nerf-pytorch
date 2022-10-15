@@ -1111,7 +1111,8 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     samples = translate_obj(samples)
     min_corner = np.array([np.min(samples[:, 0]), np.min(samples[:, 1]), np.min(samples[:, 2])])
     max_corner = np.array([np.max(samples[:, 0]), np.max(samples[:, 1]), np.max(samples[:, 2])])
-    samples = samples / max_corner
+    abs_max = np.max(np.vstack([np.abs(min_corner), np.abs(max_corner)]), axis=0)
+    samples = samples / abs_max
     samples = samples.reshape((N, N, N, 3))
     samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
@@ -1120,7 +1121,8 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     random_samples = translate_obj(random_samples)
     min_corner = np.array([np.min(random_samples[:, 0]), np.min(random_samples[:, 1]), np.min(random_samples[:, 2])])
     max_corner = np.array([np.max(random_samples[:, 0]), np.max(random_samples[:, 1]), np.max(random_samples[:, 2])])
-    # random_samples = random_samples / np.abs(max_corner)
+    abs_max = np.max(np.vstack([np.abs(min_corner), np.abs(max_corner)]), axis=0)
+    samples = samples / abs_max
     random_samples = random_samples.reshape((N_random, N_random, N_random, 3))
     random_samples_filename = os.path.join(save_path, 'random_samples_%d.npy' % (N_random))
     np.save(random_samples_filename, random_samples)
