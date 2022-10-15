@@ -662,6 +662,8 @@ def config_parser():
                         help='number of coarse samples per ray')
     parser.add_argument("--N_importance", type=int, default=0,
                         help='number of additional fine samples per ray')
+    parser.add_argument("--N_random", type=int, default=32, 
+                        help='number of random samples per dimension during sigma extraction')
     parser.add_argument("--N_single_obj_samples", type=int, default=32, 
                         help='number of samples for each object bounding box during sigma extraction')
     parser.add_argument("--near", type=float, default=0.,
@@ -932,7 +934,7 @@ def extract_single_obj_sigmas(samples, sigmas, semantic_map, sigma_threshold, cl
     np.save(samples_filename, class_samples)
 
 
-def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
+def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
     print(save_path)
     # define the dense grid for query
     N = N_samples
@@ -1025,11 +1027,13 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
     max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
     min_pt, max_pt = get_max_cube(min_corner, max_corner)
     box_pcd, coords = get_coords(min_pt, max_pt, N)
-    random_coords = get_random_coords(min_pt, max_pt, N ** 3)
+    random_coords = get_random_coords(min_pt, max_pt, N_random ** 3)
     print(min_corner, max_corner, min_pt, max_pt)
 
     xyz_ = torch.FloatTensor(coords.reshape(N ** 2, N, 3)).cuda()
     dir_ = torch.zeros(N ** 2, 3).cuda()
+    random_xyz_ = torch.FloatTensor(random_coords.reshape(N_random ** 2, N_random, 3)).cuda()
+    random_dir_ = torch.zeros(N_random ** 2, 3).cuda()
            # sigma is independent of direction, so any value here will produce the same result
 
     # predict sigma (occupancy) for each grid location
@@ -1046,17 +1050,16 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
         grads_filename = os.path.join(save_path, 'grads_%d.npy' % (N_samples))
         np.save(grads_filename, gradients)
 
-        xyz_ = torch.FloatTensor(random_coords.reshape(N ** 2, N, 3)).cuda()
-        xyz_.requires_grad = True
-        random_raw = network_query_fn(xyz_, dir_, network_fn)
-        grd = torch.ones(random_raw[..., 3].shape)
-        random_raw[..., 3].backward(gradient = grd)
-        gradients = xyz_.grad
-        gradients = gradients.detach().cpu().numpy().reshape((N_samples, N_samples, N_samples, 3))
-        xyz_.grad.zero_()
+        random_xyz_.requires_grad = True
+        random_raw = network_query_fn(random_xyz_, random_dir_, network_fn)
+        random_grd = torch.ones(random_raw[..., 3].shape)
+        random_raw[..., 3].backward(gradient = random_grd)
+        random_gradients = random_xyz_.grad
+        random_gradients = random_gradients.detach().cpu().numpy().reshape((N_random, N_random, N_random, 3))
+        random_xyz_.grad.zero_()
 
-        grads_filename = os.path.join(save_path, 'random_grads_%d.npy' % (N_samples))
-        np.save(grads_filename, gradients)
+        grads_filename = os.path.join(save_path, 'random_grads_%d.npy' % (N_random))
+        np.save(grads_filename, random_gradients)
 
     else:
         with torch.no_grad():
@@ -1067,7 +1070,7 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
 
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
-    random_sigma = random_raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
+    random_sigma = random_raw[..., 3].detach().cpu().numpy().reshape((N_random, N_random, N_random))
     plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
 
     pos_sigma_inds = np.where(sigma > 0)
@@ -1080,7 +1083,7 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
 
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
-    random_sigmas_filename = os.path.join(save_path, 'random_sigmas_%d.npy' % (N))
+    random_sigmas_filename = os.path.join(save_path, 'random_sigmas_%d.npy' % (N_random))
     np.save(random_sigmas_filename, random_sigma)
 
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
@@ -1120,8 +1123,8 @@ def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, networ
     min_corner = np.array([np.min(random_samples[:, 0]), np.min(random_samples[:, 1]), np.min(random_samples[:, 2])])
     max_corner = np.array([np.max(random_samples[:, 0]), np.max(random_samples[:, 1]), np.max(random_samples[:, 2])])
     # random_samples = random_samples / np.abs(max_corner)
-    random_samples = random_samples.reshape((N, N, N, 3))
-    random_samples_filename = os.path.join(save_path, 'random_samples_%d.npy' % (N))
+    random_samples = random_samples.reshape((N_random, N_random, N_random, 3))
+    random_samples_filename = os.path.join(save_path, 'random_samples_%d.npy' % (N_random))
     np.save(random_samples_filename, random_samples)
 
     # perform marching cube algorithm to retrieve vertices and triangle mesh
@@ -1464,7 +1467,7 @@ def train(args):
         if args.gt_register:
             rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
         else:
-            extract_sigmas(args.N_samples, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
+            extract_sigmas(args.N_samples, args.N_random, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
             # rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
 
         print('Done rendering', testsavedir)
