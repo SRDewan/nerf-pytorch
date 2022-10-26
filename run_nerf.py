@@ -20,6 +20,7 @@ from load_local_blender import load_local_blender_data
 from load_LINEMOD import load_LINEMOD_data
 from load_draco import load_draco_data
 from load_brics import load_brics_data
+from load_brown_real import load_brown_real_data
 
 import open3d as o3d
 import wandb
@@ -775,7 +776,7 @@ def config_parser():
 
     # dataset options
     parser.add_argument("--dataset_type", type=str, default='blender', 
-                        help='options: llff / blender / local_blender / deepvoxels / draco / brics')
+                        help='options: llff / blender / local_blender / deepvoxels / draco / brics / brown_real')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
     parser.add_argument("--max_ind", type=int, default=100,
@@ -1465,6 +1466,35 @@ def train(args):
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
         images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
+        K = meta['intrinsic_mat']
+        hwf = [meta['height'], meta['width'], meta['fx']]
+        print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
+        i_train, i_val, i_test = i_split
+
+        near = args.near
+        far = args.far
+
+        if args.white_bkgd:
+            images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
+            # binary_masks = np.where(masks > 0, 1, 0)
+            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
+            # images = images[..., :3] * binary_masks + (1. - binary_masks)
+
+        else:
+            images = images[..., :3]
+
+    elif args.dataset_type == 'brown_real':
+        canonical_pose = None
+        if args.canonical_path is not None:
+            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
+            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
+            canonical_poses = load_h5(canonical_poses_path)
+            canonical_models = load_models(canonical_models_path)
+            if args.model_name not in canonical_models:
+                return
+            canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
+
+        images, poses, render_poses, meta, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
