@@ -32,6 +32,9 @@ import mcubes
 from plyfile import PlyData, PlyElement
 import math
 from sklearn.cluster import KMeans
+import h5py
+import pickle
+from scipy.spatial.transform import Rotation
 
 device_idx = 0
 gc.collect()
@@ -39,6 +42,39 @@ torch.cuda.empty_cache()
 device = torch.device("cuda:%d" % (device_idx) if torch.cuda.is_available() else "cpu")
 np.random.seed(0)
 DEBUG = False
+
+
+def read_pickle_file(path):
+    objects = []
+    with open(path, "rb") as fp:
+        while True:
+            try:
+                obj = pickle.load(fp)
+                objects.append(obj)
+
+            except EOFError:
+                break
+
+    return objects
+
+
+def load_models(path):
+    models = []
+    with open(path, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            model = os.path.basename(line[:-1])
+            model = model[:-15]
+            models.append(model) 
+
+    return models
+
+
+def load_h5(path):
+    fx_input = h5py.File(path, 'r')
+    x = fx_input['data'][:]
+    fx_input.close()
+    return x
 
 
 def labels_to_pallette(mask, tensor = False):
@@ -200,7 +236,32 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
     return ret_list + [ret_dict]
 
 
-def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None):
+def get_box(K, pose):
+    corners = np.array([
+        [-1, -1, -1],
+        [-1, -1, 1],
+        [-1, 1, -1],
+        [-1, 1, 1],
+        [1, -1, -1],
+        [1, -1, 1],
+        [1, 1, -1],
+        [1, 1, 1],
+        ])
+
+    t = np.array([0.0, -0.5, 4.5]).reshape(1, 3)
+    t = np.repeat(t, 8, 0)
+    # import pdb
+    # pdb.set_trace()
+    # corners = corners + t
+    corners = np.hstack([corners, np.ones(8).reshape(8, 1)])
+    cam_pts = pose @ corners.T
+    cam_pts = cam_pts / cam_pts[3, :]
+    img_pts = K @ cam_pts[:3, :]
+    img_pts = img_pts / img_pts[2, :]
+
+    return img_pts[:2, :].T
+
+def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None):
 
     H, W, focal = hwf
 
@@ -262,6 +323,12 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             rgb8 = to8b(rgbs[-1])
             filename = os.path.join(savedir, '{:03d}.png'.format(i))
             imageio.imwrite(filename, rgb8)
+            # img_box = get_box(K, np.linalg.inv(c2w))
+            # img_box = get_box(K, c2w)
+            plt.imshow(rgb8)
+            # plt.scatter(img_box[:, 1], img_box[:, 0], marker="x", color="red", s=200)
+            plt.show()
+            cv2.imwrite("canonical/%s.png" % (model), rgb8 * 255)
 
             if render_kwargs['retdepth']:
                 # weight8 = weights[-1]
@@ -695,6 +762,8 @@ def config_parser():
                         help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
     parser.add_argument("--gt_register", action='store_true', 
                         help='groundtruth data registration')
+    parser.add_argument("--canonical_path", type=str, default=None, 
+                        help='canonical data directory')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -1385,7 +1454,17 @@ def train(args):
             images = images[...,:3]
 
     elif args.dataset_type == 'brics':
-        images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind)
+        canonical_pose = None
+        if args.canonical_path is not None:
+            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
+            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
+            canonical_poses = load_h5(canonical_poses_path)
+            canonical_models = load_models(canonical_models_path)
+            if args.model_name not in canonical_models:
+                return
+            canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
+
+        images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -1448,7 +1527,7 @@ def train(args):
     render_kwargs_test.update(bds_dict)
 
     # Move testing data to GPU
-    render_poses = torch.Tensor(render_poses).to(device)
+    # render_poses = torch.Tensor(render_poses).to(device)
 
     # Short circuit if only rendering out from trained model
     if args.render_only:
@@ -1466,9 +1545,11 @@ def train(args):
 
         if args.gt_register:
             rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
-        else:
+        elif args.canonical_path is None:
             extract_sigmas(args.N_samples, args.N_random, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
-            # rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+        else:
+            with torch.no_grad():
+                rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
 
         print('Done rendering', testsavedir)
         # imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
@@ -1842,8 +1923,10 @@ if __name__=='__main__':
         for dir_name in os.listdir(args.root_dir):
             args.expname = dir_name
             category_name = dir_name.split("_")[1]
-            model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
-            args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
+            args.model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
+            print("Processing ", args.model_name)
+            # if args.canonical_path is None:
+                # args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
             args.ft_path = os.path.join(args.root_dir, dir_name, f"{args.iters:06d}.tar")
             if not os.path.exists(args.ft_path):
                 print("Skipping %s!" % (dir_name))

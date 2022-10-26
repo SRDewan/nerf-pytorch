@@ -9,6 +9,7 @@ import glob
 import random
 import matplotlib.pyplot as plt
 import pickle
+import h5py
 
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -32,6 +33,23 @@ rot_theta = lambda th : torch.Tensor([
     [0,0,0,1]]).float()
 
 
+def load_h5(path):
+    fx_input = h5py.File(path, "r")
+    x = fx_input["data"][:]
+    fx_input.close()
+    return x
+
+def load_models(path):
+    models = []
+    with open(path, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            model = os.path.basename(line[:-1])
+            model = model[:-15]
+            models.append(model)
+
+    return models
+
 def pose_spherical(theta, phi, radius):
     c2w = trans_t(radius)
     c2w = rot_phi(phi/180.*np.pi) @ c2w
@@ -52,7 +70,7 @@ def read_pickle_file(path):
 
     return objects 
 
-def load_dataset(directory):
+def load_dataset(directory, canonical_pose = None):
     # print(directory)
 
     cam_data_path = os.path.join(directory, "cam_data.pkl")
@@ -79,6 +97,31 @@ def load_dataset(directory):
         pose = np.linalg.inv(pose)
         # print(pose)
 
+        if canonical_pose is not None:
+            canonical_pose_4 = np.identity(4)
+            canonical_pose_4[:3, :3] = canonical_pose
+
+            t = np.array([0.0, -0.5, 4.5]).T
+            final_pose = np.identity(4)
+            final_pose[:3, -1] = -t
+            final_pose = canonical_pose_4 @ final_pose
+            final_pose[:3, -1] += t
+            final_pose = pose @ final_pose
+            final_pose = np.linalg.inv(final_pose)
+            pose = final_pose
+
+            # canonical_pose_4 = np.identity(4)
+            # canonical_pose_4[:3, :3] = canonical_pose
+
+            # t = np.array([0.0, -0.5, 4.5]).T
+            # final_pose = np.identity(4)
+            # final_pose[:3, -1] = -t
+            # final_pose = canonical_pose_4 @ final_pose
+            # final_pose[:3, -1] += t
+            # final_pose = np.linalg.inv(pose) @ final_pose
+            # final_pose = np.linalg.inv(final_pose)
+            # pose = final_pose
+
         imgs[i] = {
             "camera_id": image_id,
             "t": pose[:3, 3].reshape(3, 1),
@@ -92,8 +135,8 @@ def load_dataset(directory):
 
     return imgs, cams
 
-def main_loader(root_dir, scale):
-    imgs, cams = load_dataset(root_dir)
+def main_loader(root_dir, scale, canonical_pose = None):
+    imgs, cams = load_dataset(root_dir, canonical_pose)
     #print(imgs)
     #print(cams)
 
@@ -124,8 +167,8 @@ def pallette_to_labels(mask):
 
     return mask
 
-def load_brics_data(basedir, res=1, skip=1, max_ind=54):
-    imgs, cams = main_loader(basedir, res)
+def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
+    imgs, cams = main_loader(basedir, res, canonical_pose)
     all_ids = []
     all_imgs = []
     all_poses = []
@@ -156,6 +199,7 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54):
         n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         all_depths.append(n_depth)
     
+    # all_poses = [all_poses[all_ids.index("left_5")]]
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
