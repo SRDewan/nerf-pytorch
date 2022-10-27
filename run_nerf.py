@@ -1494,7 +1494,7 @@ def train(args):
                 return
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
-        images, poses, render_poses, meta, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
+        images, poses, render_poses, meta, i_split = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)

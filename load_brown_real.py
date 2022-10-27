@@ -63,7 +63,7 @@ def read_txt_file(path):
         lines = f.readlines()
 
         for line in lines:
-            vec = np.array([float(i) for i in s.split(',')])
+            vec = np.array([float(i) for i in line.split(',')])
             arr.append(vec)
 
     arr = np.array(arr)
@@ -71,9 +71,11 @@ def read_txt_file(path):
 
 def extract_pose(rvec, tvec):
     R, _ = cv2.Rodrigues(rvec)  # Also outputs Jacobian
-    t = -R.T @ tvec
+    t = tvec
+    # t = -R.T @ tvec
 
-    R = np.linalg.inv(R)
+    # R = np.linalg.inv(R)
+    R = R.T
     t = -t
 
     pose = np.identity(4)
@@ -96,7 +98,7 @@ def load_dataset(directory, canonical_pose = None):
     K = read_txt_file(intrinsics_path)
     cams = {
             "width": 1280,
-            "height": 720
+            "height": 720,
             "fx": K[0][0],
             "fy": K[1][1],
             "cx": K[0][2],
@@ -105,7 +107,7 @@ def load_dataset(directory, canonical_pose = None):
 
     imgs = {}
     image_dir = directory
-    images = glob.glob(image_dir + "**/*.png", recursive = True)
+    images = glob.glob(image_dir + "/**/*0.jpg", recursive = True)
     images.sort()
 
     # mask_dir = os.path.join(directory, "mask/")
@@ -113,10 +115,10 @@ def load_dataset(directory, canonical_pose = None):
 
     for i in range(len(images)):
         image_current = images[i]
-        image_id = int(os.path.basename(image_current).split(".")[0])
+        image_id = int(os.path.dirname(image_current).split("_")[-1])
         # image_parent_dir = image_current.split("/")[-2]
 
-        pose = extract_pose(rvecs[image_id], tvecs[image_id])
+        pose = extract_pose(rvecs[i], tvecs[i])
         # print(pose)
 
         if canonical_pose is not None:
@@ -198,6 +200,9 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
     all_depths = []
 
     for index in range(0, max_ind, skip):
+        if index >= len(imgs):
+            break
+
         all_ids.append(imgs[index]["camera_id"])
 
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
@@ -228,8 +233,7 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
 
     i_val = []
     for side_idx in range(6):
-        val_camera_id = np.random.randint(side_idx * 9, side_idx * 9 + 9) 
-        val_idx = all_ids.index(val_camera_id)
+        val_idx = np.random.randint(side_idx * 9, side_idx * 9 + 9) 
         i_val.append(val_idx)
 
     indices = np.arange(len(all_imgs))

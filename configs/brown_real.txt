@@ -1,6 +1,6 @@
 expname = brown_real_car_vanilla_test
 basedir = ./brown_real_logs/car
-datadir = /home2/shaurya.dewan/NOCs/data/brown_real_nerf_data/car/
+datadir = /home2/shaurya.dewan/NOCs/data/brown_real_nerf_data/car
 dataset_type = brown_real
 testskip = 1
 max_ind = 54
