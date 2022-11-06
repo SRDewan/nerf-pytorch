@@ -50,11 +50,26 @@ def load_models(path):
 
     return models
 
-def pose_spherical(theta, phi, radius):
+def novel_pose_gen(novel_pose, camera_pose):
+    t = np.array([0.0, -0.5, 4.5]).T
+    final_pose = np.identity(4)
+    final_pose[:3, -1] = -t
+    final_pose = novel_pose @ final_pose
+    final_pose[:3, -1] += t
+    final_pose = camera_pose @ final_pose
+    final_pose = np.linalg.inv(final_pose)
+    pose = final_pose
+
+    return pose
+
+def pose_spherical(theta, phi, radius, cam_pose):
     c2w = trans_t(radius)
     c2w = rot_phi(phi/180.*np.pi) @ c2w
     c2w = rot_theta(theta/180.*np.pi) @ c2w
     c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    device = c2w.device
+    c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
+    c2w = torch.tensor(c2w).to(device)
     return c2w
 
 def read_pickle_file(path):
@@ -218,7 +233,8 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
     i_test = i_val
     i_split = [i_train, i_val, i_test]
 
-    render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
+    render_poses = torch.stack([pose_spherical(angle, 30.0, 1.0, all_poses[0]) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
+    render_poses = all_poses
 
     return all_imgs, all_poses, render_poses, cams, all_seg_masks, all_depths, i_split
 

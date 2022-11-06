@@ -7,6 +7,7 @@ import numpy as np
 
 # Misc
 img2mse = lambda x, y : torch.mean((x - y) ** 2)
+img2weighted_mse = lambda x, y, wts : torch.mean(wts * ((x - y) ** 2))
 entropy_loss = nn.CrossEntropyLoss()
 mask2entropy = lambda x, y : entropy_loss(x, y)
 sigmas2loss = lambda x, scale, act_fn=F.relu : torch.sum(torch.mean(1. - torch.exp(-scale * act_fn(x)), axis=1))
@@ -110,6 +111,17 @@ class NeRF(nn.Module):
 
         else:
             self.output_linear = nn.Linear(W, output_ch)
+
+    def query_density(self, input_pts):
+        h = input_pts
+        for i, l in enumerate(self.pts_linears):
+            h = self.pts_linears[i](h)
+            h = F.relu(h)
+            if i in self.skips:
+                h = torch.cat([input_pts, h], -1)
+
+        alpha = self.alpha_linear(h)
+        return alpha
 
     def forward(self, x):
         input_pts, input_views = torch.split(x, [self.input_ch, self.input_ch_views], dim=-1)

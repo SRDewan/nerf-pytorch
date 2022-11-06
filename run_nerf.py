@@ -36,6 +36,8 @@ from sklearn.cluster import KMeans
 import h5py
 import pickle
 from scipy.spatial.transform import Rotation
+import nerfacc
+from nerfacc import ContractionType, OccupancyGrid
 
 device_idx = 0
 gc.collect()
@@ -314,6 +316,8 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
         if i==0:
             print(rgb.shape, disp.shape)
 
+        del rgb, disp, acc, extras
+        torch.cuda.empty_cache()
         """
         if gt_imgs is not None and render_factor==0:
             p = -10. * np.log10(np.mean(np.square(rgb.cpu().numpy() - gt_imgs[i])))
@@ -324,12 +328,13 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             rgb8 = to8b(rgbs[-1])
             filename = os.path.join(savedir, '{:03d}.png'.format(i))
             imageio.imwrite(filename, rgb8)
+
             # img_box = get_box(K, np.linalg.inv(c2w))
             # img_box = get_box(K, c2w)
-            plt.imshow(rgb8)
+            # plt.imshow(rgb8)
             # plt.scatter(img_box[:, 1], img_box[:, 0], marker="x", color="red", s=200)
-            plt.show()
-            cv2.imwrite("canonical/%s.png" % (model), rgb8 * 255)
+            # plt.show()
+            imageio.imwrite("novel_renderings/chair/%s_%d.png" % (model, i), rgb8)
 
             if render_kwargs['retdepth']:
                 # weight8 = weights[-1]
@@ -431,6 +436,8 @@ def create_nerf(args):
     ##########################
 
     render_kwargs_train = {
+        'embed_fn': embed_fn, 
+        'embeddirs_fn': embeddirs_fn,
         'network_query_fn' : network_query_fn,
         'perturb' : args.perturb,
         'N_importance' : args.N_importance,
@@ -440,7 +447,7 @@ def create_nerf(args):
         'use_viewdirs' : args.use_viewdirs,
         'white_bkgd' : args.white_bkgd,
         'raw_noise_std' : args.raw_noise_std,
-        'retdepth': False,
+        'retdepth': True,
         'semantic_en': args.semantic_en,
         'num_classes': args.num_classes,
     }
@@ -517,6 +524,8 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
 
 
 def render_rays(ray_batch,
+                embed_fn,
+                embeddirs_fn,
                 network_fn,
                 network_query_fn,
                 N_samples,
@@ -601,6 +610,55 @@ def render_rays(ray_batch,
     viewdirs = viewdirs.to(device)
     pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
 
+    # def sigma_fn(t_starts, t_ends, ray_indices):
+        # # import pdb
+        # # pdb.set_trace()
+        # t_origins = rays_o[ray_indices]  # (n_samples, 3)
+        # t_dirs = rays_d[ray_indices]  # (n_samples, 3)
+        # positions = t_origins + t_dirs * (t_starts + t_ends) / 2.0
+
+        # inputs_flat = torch.reshape(positions, [-1, positions.shape[-1]])
+        # embedded = embed_fn(inputs_flat)
+        # sigmas = network_fn.query_density(embedded)
+
+        # return sigmas  # (n_samples, 1)
+
+    # def rgb_sigma_fn(t_starts, t_ends, ray_indices):
+        # # import pdb
+        # # pdb.set_trace()
+        # t_origins = rays_o[ray_indices]  # (n_samples, 3)
+        # t_dirs = rays_d[ray_indices]  # (n_samples, 3)
+        # positions = t_origins + t_dirs * (t_starts + t_ends) / 2.0
+
+        # inputs_flat = torch.reshape(positions, [-1, positions.shape[-1]])
+        # embedded = embed_fn(inputs_flat)
+        # input_dirs = t_dirs[:,None].expand(positions.shape)
+        # input_dirs_flat = torch.reshape(input_dirs, [-1, input_dirs.shape[-1]])
+        # embedded_dirs = embeddirs_fn(input_dirs_flat)
+        # embedded = torch.cat([embedded, embedded_dirs], -1)
+
+        # raw = network_fn(embedded)
+        # rgbs = torch.sigmoid(raw[...,:3])  # [N_rays, N_samples, 3]
+        # sigmas = raw[..., 3]
+
+        # return rgbs, sigmas  # (n_samples, 3), (n_samples, 1)
+
+    # aabb = torch.Tensor([-4.5, -5.0, 0.0, 4.5, 4.0, 9.0])
+    # occupancy_grid = OccupancyGrid(
+        # roi_aabb=aabb,
+        # resolution=32,
+        # contraction_type=ContractionType.AABB,
+    # ).to(device)
+
+    # with torch.no_grad():
+        # import pdb
+        # pdb.set_trace()
+        # packed_info, t_starts, t_ends = nerfacc.ray_marching(
+            # rays_o[:64], rays_d[:64], sigma_fn=sigma_fn, near_plane=near[0], far_plane=far[0], grid=occupancy_grid
+            # )
+    # print("Done with nerfacc ray marching")
+
+    # color, opacity, depth = nerfacc.rendering(rgb_sigma_fn, packed_info, t_starts, t_ends)
 
 #     raw = run_network(pts)
     raw = network_query_fn(pts, viewdirs, network_fn)
@@ -711,6 +769,8 @@ def config_parser():
                         help='number of semantic classes')
 
     # loss weights
+    parser.add_argument("--loss_param", type=float, default=1,
+                        help='exponential term parameter for depth weighting')
     parser.add_argument("--rgb_wt", type=float, default=1,
                         help='rgb loss weight')
     parser.add_argument("--semantic_wt", type=float, default=0,
@@ -765,6 +825,8 @@ def config_parser():
                         help='groundtruth data registration')
     parser.add_argument("--canonical_path", type=str, default=None, 
                         help='canonical data directory')
+    parser.add_argument("--model_name", type=str, default="", 
+                        help='model name')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -1475,7 +1537,12 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
+            # empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
+            # empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
+            # images = np.where(empty_images - images < 0.05, 1, images)[..., :3]
+
             images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
+
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
             # images = images[..., :3] * binary_masks + (1. - binary_masks)
@@ -1494,9 +1561,8 @@ def train(args):
                 return
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
-        images, poses, render_poses, meta, i_split = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
-        K = meta['intrinsic_mat']
-        hwf = [meta['height'], meta['width'], meta['fx']]
+        images, poses, render_poses, meta, i_split, hwf = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
+        K = meta[0]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
@@ -1504,7 +1570,7 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
-            images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
+            images = images[..., :3]
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
             # images = images[..., :3] * binary_masks + (1. - binary_masks)
@@ -1528,8 +1594,8 @@ def train(args):
             [0, 0, 1]
         ])
 
-    if args.render_test:
-        render_poses = np.array(poses[i_test])
+    # if args.render_test:
+        # render_poses = np.array(poses[i_test])
 
     # Create log dir and copy the config file
     basedir = args.basedir
@@ -1575,11 +1641,14 @@ def train(args):
 
         if args.gt_register:
             rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
-        elif args.canonical_path is None:
-            extract_sigmas(args.N_samples, args.N_random, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
-        else:
+        elif args.canonical_path is not None:
             with torch.no_grad():
                 rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
+        elif args.render_test:
+            with torch.no_grad():
+                rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
+        else:
+            extract_sigmas(args.N_samples, args.N_random, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
 
         print('Done rendering', testsavedir)
         # imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
@@ -1657,6 +1726,8 @@ def train(args):
             target = images[img_i]
             target = torch.Tensor(target).to(device)
             pose = poses[img_i, :3,:4]
+            if args.dataset_type == "brown_real":
+                K = meta[img_i]
             if args.semantic_en:
                 target_sem = masks[img_i]
                 target_sem = torch.Tensor(target_sem).to(device)
@@ -1697,6 +1768,10 @@ def train(args):
                                                 **render_kwargs_train)
 
         optimizer.zero_grad()
+        depths = extras['depth_map'].detach().cpu()
+        weights = torch.exp(-args.loss_param * depths).to(device)
+        weights = weights.unsqueeze(-1).repeat(1, 3)
+        # img_loss = img2weighted_mse(rgb, target_s, weights)
         img_loss = img2mse(rgb, target_s)
         trans = extras['raw'][...,-1]
         loss = args.rgb_wt * img_loss
@@ -1716,6 +1791,10 @@ def train(args):
         # loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
 
         if 'rgb0' in extras:
+            depths = extras['depth0'].detach().cpu()
+            weights = torch.exp(-args.loss_param * depths).to(device)
+            weights = weights.unsqueeze(-1).repeat(1, 3)
+            # img_loss0 = img2weighted_mse(rgb, target_s, weights)
             img_loss0 = img2mse(extras['rgb0'], target_s)
             loss = loss + args.rgb_wt * img_loss0
             psnr0 = mse2psnr(img_loss0)
@@ -1826,6 +1905,8 @@ def train(args):
                 img_i=np.random.choice(i_val)
                 target = images[img_i]
                 pose = poses[img_i, :3,:4]
+                if args.dataset_type == "brown_real":
+                    K = meta[img_i]
                 if args.semantic_en:
                     target_sem = masks[img_i]
                     target_sem = torch.Tensor(target_sem).to(device)
