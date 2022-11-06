@@ -10,6 +10,7 @@ import random
 import matplotlib.pyplot as plt
 import pickle
 import h5py
+from scipy.spatial.transform import Rotation as R
 
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -81,11 +82,11 @@ def extract_pose(rvec, tvec):
     pose = np.identity(4)
     pose[:3, :3] = R
     pose[:3, 3] = t
-    pose = np.linalg.inv(pose)
+    # pose = np.linalg.inv(pose)
 
     return pose
 
-def load_dataset(directory, canonical_pose = None):
+def load_dataset_old(directory, canonical_pose = None):
     # print(directory)
 
     cam_data_path = os.path.join(os.path.dirname(directory), "cameras")
@@ -159,29 +160,95 @@ def load_dataset(directory, canonical_pose = None):
 
     return imgs, cams
 
-def main_loader(root_dir, scale, canonical_pose = None):
-    imgs, cams = load_dataset(root_dir, canonical_pose)
-    #print(imgs)
-    #print(cams)
+def load_dataset(directory, scale = 1.0, canonical_pose = None):
+    params_path = os.path.join(os.path.dirname(directory), "params_latest.txt")
+    params = np.loadtxt(f"{params_path}",
+            dtype=[
+                ('cam_id', int), ('width', int), ('height', int),
+                ('fx', float), ('fy', float),
+                ('cx', float), ('cy', float),
+                ('k1', float), ('k2', float),
+                ('p1', float), ('p2', float),
+                ('cam_name', '<U10'),
+                ('qvecw', float), ('qvecx', float), ('qvecy', float), ('qvecz', float),
+                ('tvecx', float), ('tvecy', float), ('tvecz', float)
+                ])
 
-    cams["fx"] = fx = cams["fx"] * scale
-    cams["fy"] = fy = cams["fy"] * scale
-    cams["cx"] = cx = cams["cx"] * scale
-    cams["cy"] = cy = cams["cy"] * scale
+    params = np.sort(params, order='cam_name')
+    proj_mats = {}
 
-    rand_key = random.choice(list(imgs))
-    test_img = cv2.imread(imgs[rand_key]["path"])
-    h, w = test_img.shape[:2]
-    cams["height"] = round(h * scale)
-    cams["width"] = round(w * scale)
+    imgs = {}
+    image_dir = directory
 
-    cams["intrinsic_mat"] = np.array([
-        [fx, 0, cx],
-        [0, -fy, cy],
-        [0, 0, -1]
-        ])
+    # mask_dir = os.path.join(directory, "mask/")
+    # depth_dir = os.path.join(directory, "depth/")
 
-    return imgs, cams 
+    for i in range(params.shape[0]):
+        qvec = [params[i]['qvecx'], params[i]['qvecy'], params[i]['qvecz'], params[i]['qvecw']]
+        tvec = np.asarray([params[i]['tvecx'], params[i]['tvecy'], params[i]['tvecz']])
+        r = R.from_quat(qvec).as_matrix()
+        extr = np.vstack([np.hstack([r, tvec[:,None]]), np.zeros((1, 4))])
+        extr[3, 3] = 1
+        extr = np.linalg.inv(extr)
+        # extr = extr[:3]
+    
+        intr = np.eye(3)
+        intr[0, 0] = params[i]['fx'] * scale
+        intr[1, 1] = -params[i]['fy'] * scale
+        intr[0, 2] = params[i]['cx'] * scale
+        intr[1, 2] = params[i]['cy'] * scale
+        intr[2, 2] = -1
+
+        # proj_mats[params[i]['cam_name']] = intr @ extr
+        w = params[i]['width'] * scale
+        h = params[i]['height'] * scale
+        
+        image_id = params[i]['cam_name']
+        image_dir_path = os.path.join(image_dir, image_id)
+        image_current = os.path.join(image_dir_path, os.listdir(image_dir_path)[0])
+
+        if canonical_pose is not None:
+            canonical_pose_4 = np.identity(4)
+            canonical_pose_4[:3, :3] = canonical_pose
+
+            t = np.array([0.0, -0.5, 4.5]).T
+            final_pose = np.identity(4)
+            final_pose[:3, -1] = -t
+            final_pose = canonical_pose_4 @ final_pose
+            final_pose[:3, -1] += t
+            final_pose = pose @ final_pose
+            final_pose = np.linalg.inv(final_pose)
+            pose = final_pose
+
+            # canonical_pose_4 = np.identity(4)
+            # canonical_pose_4[:3, :3] = canonical_pose
+
+            # t = np.array([0.0, -0.5, 4.5]).T
+            # final_pose = np.identity(4)
+            # final_pose[:3, -1] = -t
+            # final_pose = canonical_pose_4 @ final_pose
+            # final_pose[:3, -1] += t
+            # final_pose = np.linalg.inv(pose) @ final_pose
+            # final_pose = np.linalg.inv(final_pose)
+            # pose = final_pose
+
+        distortion = np.array([params[i]["k1"], params[i]["k2"], params[i]["p1"], params[i]["p2"]])
+        imgs[i] = {
+            "camera_id": image_id,
+            "t": extr[:3, 3].reshape(3, 1),
+            "R": extr[:3, :3],
+            "path": image_current,
+            "pose": extr,
+            "K": intr,
+            "width": w,
+            "height": h,
+            "distortion": distortion
+        }
+
+        # imgs[i]["mask_path"] = os.path.join(mask_dir, "%s/%s_seg.png" % (image_parent_dir, image_id))
+        # imgs[i]["depth_path"] = os.path.join(depth_dir, "%s/%s_depth.npz" % (image_parent_dir, image_id))
+
+    return imgs, None
 
 def pallette_to_labels(mask):
     uniq_vals = np.unique(mask)
@@ -192,12 +259,15 @@ def pallette_to_labels(mask):
     return mask
 
 def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
-    imgs, cams = main_loader(basedir, res, canonical_pose)
+    imgs, cams = load_dataset(basedir, res, canonical_pose)
     all_ids = []
     all_imgs = []
     all_poses = []
     all_seg_masks = []
     all_depths = []
+
+    if cams is None:
+        cams = []
 
     for index in range(0, max_ind, skip):
         if index >= len(imgs):
@@ -206,6 +276,11 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
         all_ids.append(imgs[index]["camera_id"])
 
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
+        K = np.copy(imgs[index]["K"])
+        K[1][1] *= -1
+        K[2][2] *= -1
+        n_image = cv2.undistort(n_image[:, :, :3], K, imgs[index]["distortion"]) 
+
         h, w = n_image.shape[:2]
         resized_h = round(h * res)
         resized_w = round(w * res)
@@ -215,6 +290,9 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
         n_pose = imgs[index]["pose"]
         all_poses.append(n_pose)
         
+        if type(cams) == list:
+            cams.append(imgs[index]["K"]) 
+
         # n_seg_mask = cv2.imread(imgs[index]["mask_path"], cv2.IMREAD_GRAYSCALE)
         # n_seg_mask = cv2.resize(n_seg_mask, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         # n_seg_mask = pallette_to_labels(n_seg_mask)
@@ -243,4 +321,4 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
 
     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
 
-    return all_imgs, all_poses, render_poses, cams, i_split
+    return all_imgs, all_poses, render_poses, cams, i_split, [imgs[0]["height"], imgs[0]["width"], imgs[0]["K"][0][0]]
