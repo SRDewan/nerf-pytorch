@@ -160,8 +160,18 @@ def load_dataset_old(directory, canonical_pose = None):
 
     return imgs, cams
 
+def convert_frame(transformation_mat):
+    flip_x = np.identity(4)
+    flip_x[2, 2] *= -1
+    flip_x[1, 1] *= -1
+
+    flip_x = np.linalg.inv(flip_x)
+
+    # 180 degree rotation around x axis due to blender's coordinate system
+    return (np.linalg.inv(flip_x) @ transformation_mat)
+
 def load_dataset(directory, scale = 1.0, canonical_pose = None):
-    params_path = os.path.join(os.path.dirname(directory), "params_latest.txt")
+    params_path = os.path.join(os.path.dirname(directory), "07_11_params.txt")
     params = np.loadtxt(f"{params_path}",
             dtype=[
                 ('cam_id', int), ('width', int), ('height', int),
@@ -189,15 +199,16 @@ def load_dataset(directory, scale = 1.0, canonical_pose = None):
         r = R.from_quat(qvec).as_matrix()
         extr = np.vstack([np.hstack([r, tvec[:,None]]), np.zeros((1, 4))])
         extr[3, 3] = 1
+        extr = convert_frame(extr)
         extr = np.linalg.inv(extr)
         # extr = extr[:3]
     
         intr = np.eye(3)
         intr[0, 0] = params[i]['fx'] * scale
-        intr[1, 1] = -params[i]['fy'] * scale
+        intr[1, 1] = params[i]['fy'] * scale
         intr[0, 2] = params[i]['cx'] * scale
         intr[1, 2] = params[i]['cy'] * scale
-        intr[2, 2] = -1
+        intr[2, 2] = 1
 
         # proj_mats[params[i]['cam_name']] = intr @ extr
         w = params[i]['width'] * scale
@@ -277,8 +288,8 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
 
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
         K = np.copy(imgs[index]["K"])
-        K[1][1] *= -1
-        K[2][2] *= -1
+        # K[1][1] *= -1
+        # K[2][2] *= -1
         n_image = cv2.undistort(n_image[:, :, :3], K, imgs[index]["distortion"]) 
 
         h, w = n_image.shape[:2]
