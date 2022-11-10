@@ -113,18 +113,6 @@ def load_dataset(directory, canonical_pose = None):
         # print(pose)
 
         if canonical_pose is not None:
-            canonical_pose_4 = np.identity(4)
-            canonical_pose_4[:3, :3] = canonical_pose
-
-            t = np.array([0.0, -0.5, 4.5]).T
-            final_pose = np.identity(4)
-            final_pose[:3, -1] = -t
-            final_pose = canonical_pose_4 @ final_pose
-            final_pose[:3, -1] += t
-            final_pose = pose @ final_pose
-            final_pose = np.linalg.inv(final_pose)
-            pose = final_pose
-
             # canonical_pose_4 = np.identity(4)
             # canonical_pose_4[:3, :3] = canonical_pose
 
@@ -133,9 +121,21 @@ def load_dataset(directory, canonical_pose = None):
             # final_pose[:3, -1] = -t
             # final_pose = canonical_pose_4 @ final_pose
             # final_pose[:3, -1] += t
-            # final_pose = np.linalg.inv(pose) @ final_pose
+            # final_pose = pose @ final_pose
             # final_pose = np.linalg.inv(final_pose)
             # pose = final_pose
+
+            canonical_pose_4 = np.identity(4)
+            canonical_pose_4[:3, :3] = np.linalg.inv(canonical_pose)
+
+            t = np.array([0.0, -0.5, 4.5]).T
+            final_pose = np.identity(4)
+            final_pose[:3, -1] = -t
+            final_pose = canonical_pose_4 @ final_pose
+            final_pose[:3, -1] += t
+            final_pose = final_pose @ pose
+            # final_pose = np.linalg.inv(final_pose)
+            pose = final_pose
 
         imgs[i] = {
             "camera_id": image_id,
@@ -214,7 +214,7 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
         n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         all_depths.append(n_depth)
     
-    # all_poses = [all_poses[all_ids.index("left_5")]]
+    # all_poses = np.array([all_poses[all_ids.index("left_5")]])
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)

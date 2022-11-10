@@ -239,30 +239,34 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
     return ret_list + [ret_dict]
 
 
-def get_box(K, pose):
+def get_box(K, pose, min_corner=[-1, -1, -1], max_corner=[1, 1, 1], scale=1.0):
     corners = np.array([
-        [-1, -1, -1],
-        [-1, -1, 1],
-        [-1, 1, -1],
-        [-1, 1, 1],
-        [1, -1, -1],
-        [1, -1, 1],
-        [1, 1, -1],
-        [1, 1, 1],
-        ])
+        [min_corner[0], min_corner[1], min_corner[2]],
+        [min_corner[0], min_corner[1], max_corner[2]],
+        [min_corner[0], max_corner[1], min_corner[2]],
+        [min_corner[0], max_corner[1], max_corner[2]],
+        [max_corner[0], min_corner[1], min_corner[2]],
+        [max_corner[0], min_corner[1], max_corner[2]],
+        [max_corner[0], max_corner[1], min_corner[2]],
+        [max_corner[0], max_corner[1], max_corner[2]]
+        ]) * scale
+    connects = [[0, 1], [0, 2], [0, 4], [6, 7], [6, 4], [6, 2], [5, 7], [5, 4], [5, 1], [3, 1], [3, 2], [3, 7]]
 
     t = np.array([0.0, -0.5, 4.5]).reshape(1, 3)
     t = np.repeat(t, 8, 0)
     # import pdb
     # pdb.set_trace()
-    # corners = corners + t
+    corners = corners + t
     corners = np.hstack([corners, np.ones(8).reshape(8, 1)])
     cam_pts = pose @ corners.T
     cam_pts = cam_pts / cam_pts[3, :]
+
+    K[1][1] *= -1
+    K[2][2] *= -1
     img_pts = K @ cam_pts[:3, :]
     img_pts = img_pts / img_pts[2, :]
 
-    return img_pts[:2, :].T
+    return img_pts[:2, :].T, connects
 
 def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None):
 
@@ -316,8 +320,6 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
         if i==0:
             print(rgb.shape, disp.shape)
 
-        del rgb, disp, acc, extras
-        torch.cuda.empty_cache()
         """
         if gt_imgs is not None and render_factor==0:
             p = -10. * np.log10(np.mean(np.square(rgb.cpu().numpy() - gt_imgs[i])))
@@ -329,12 +331,37 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             filename = os.path.join(savedir, '{:03d}.png'.format(i))
             imageio.imwrite(filename, rgb8)
 
-            # img_box = get_box(K, np.linalg.inv(c2w))
-            # img_box = get_box(K, c2w)
-            # plt.imshow(rgb8)
-            # plt.scatter(img_box[:, 1], img_box[:, 0], marker="x", color="red", s=200)
-            # plt.show()
-            imageio.imwrite("novel_renderings/chair/%s_%d.png" % (model, i), rgb8)
+            clustered_sigmas = cluster(extras['sigma_map'].detach().cpu().numpy(), 2)
+            samples = extras['sample_points'].detach().cpu().numpy()
+            occ_inds = np.where(clustered_sigmas > 0)
+            occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
+            min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
+            max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
+
+            # img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1.5, -2, 3], [1.5, 1, 6])
+            img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1, -1, -1], [1, 1, 1], 1.5)
+            # plt.scatter(img_box[:, 0], img_box[:, 1], marker="x", color="red", s=200)
+
+            plt.imshow(rgb8)
+            for i in range(len(connects)):
+                # if i >= 2:
+                    # break
+                pt1 = img_box[connects[i][0], :]
+                pt2 = img_box[connects[i][1], :]
+                x = [pt1[0], pt2[0]]
+                y = [pt1[1], pt2[1]]
+                plt.plot(x, y, color="red", clip_on=True, linewidth=3)
+
+                # print(connects[i], pt1, pt2)
+                # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
+                # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
+                # plt.show()
+
+            plt.show()
+            can_save_path = "novel_renderings/firearm_sub_add_post_c2w_inv_can/%s_%d.png" % (model, i)
+            # if not os.path.exists(os.path.dirname(can_save_path)):
+                # os.makedirs(os.path.dirname(can_save_path))
+            imageio.imwrite(can_save_path, rgb8)
 
             if render_kwargs['retdepth']:
                 # weight8 = weights[-1]
@@ -364,6 +391,9 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 semantic8 = semantics[-1]
                 semantic_filename = os.path.join(savedir, 'semantic_{:03d}.npy'.format(i))
                 np.save(semantic_filename, semantic8)
+
+        del rgb, disp, acc, extras
+        torch.cuda.empty_cache()
 
     rgbs = np.stack(rgbs, 0)
     disps = np.stack(disps, 0)
@@ -936,7 +966,7 @@ def get_random_coords(min_coord, max_coord, sample_ctr=128):
 
 def cluster(sigmas, n_clusters=2, power=2.0, scale=1.0):
     print("Number of clusters = ", n_clusters)
-    dim, _, _ = sigmas.shape
+    dim1, dim2, dim3 = sigmas.shape
     sigmas = sigmas.reshape((-1, 1))
     #sigmas = sigmas + 1e2
 
@@ -954,7 +984,7 @@ def cluster(sigmas, n_clusters=2, power=2.0, scale=1.0):
     (clusters, counts) = np.unique(labels, return_counts=True)
     fg_label = clusters[np.where(counts == counts.min())[0]]
     clustered_sigmas = np.where(labels == fg_label, 1, 0)
-    return clustered_sigmas.reshape((dim, dim, dim))
+    return clustered_sigmas.reshape((dim1, dim2, dim3))
 
 
 def plot_sigmas(sigmas, save_path, plot_file_name):
@@ -1519,8 +1549,8 @@ def train(args):
     elif args.dataset_type == 'brics':
         canonical_pose = None
         if args.canonical_path is not None:
-            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
-            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
+            canonical_poses_path = os.path.join(args.canonical_path, "firearm_canonical.h5") 
+            canonical_models_path = os.path.join(args.canonical_path, "firearm_files.txt")
             canonical_poses = load_h5(canonical_poses_path)
             canonical_models = load_models(canonical_models_path)
             if args.model_name not in canonical_models:
@@ -1563,14 +1593,15 @@ def train(args):
 
         images, poses, render_poses, meta, i_split, hwf = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
         K = meta[0]
-        print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
+        print('Loaded brics', len(images), poses.shape, render_poses.shape, K, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
         near = args.near
         far = args.far
 
         if args.white_bkgd:
-            images = images[..., :3]
+            images = images
+            # images = images[..., :3]
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
             # images = images[..., :3] * binary_masks + (1. - binary_masks)
@@ -1728,6 +1759,7 @@ def train(args):
             pose = poses[img_i, :3,:4]
             if args.dataset_type == "brown_real":
                 K = meta[img_i]
+                H, W = images[img_i].shape[:2]
             if args.semantic_en:
                 target_sem = masks[img_i]
                 target_sem = torch.Tensor(target_sem).to(device)
@@ -1907,6 +1939,7 @@ def train(args):
                 pose = poses[img_i, :3,:4]
                 if args.dataset_type == "brown_real":
                     K = meta[img_i]
+                    H, W = images[img_i].shape[:2]
                 if args.semantic_en:
                     target_sem = masks[img_i]
                     target_sem = torch.Tensor(target_sem).to(device)
