@@ -268,6 +268,29 @@ def get_box(K, pose, min_corner=[-1, -1, -1], max_corner=[1, 1, 1], scale=1.0):
 
     return img_pts[:2, :].T, connects
 
+def get_axes(K, pose, scale=1.0):
+    corners = np.array([
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [1, 0, 0],
+        ]) * scale
+    connects = [[0, 1], [0, 2], [0, 3]]
+
+    t = np.array([0.0, -0.5, 4.5]).reshape(1, 3)
+    t = np.repeat(t, 4, 0)
+    corners = corners + t
+    corners = np.hstack([corners, np.ones(4).reshape(4, 1)])
+    cam_pts = pose @ corners.T
+    cam_pts = cam_pts / cam_pts[3, :]
+
+    K[1][1] *= -1
+    K[2][2] *= -1
+    img_pts = K @ cam_pts[:3, :]
+    img_pts = img_pts / img_pts[2, :]
+
+    return img_pts[:2, :].T, connects
+
 def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None):
 
     H, W, focal = hwf
@@ -341,7 +364,9 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             # img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1.5, -2, 3], [1.5, 1, 6])
             img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1, -1, -1], [1, 1, 1], 1.5)
             # plt.scatter(img_box[:, 0], img_box[:, 1], marker="x", color="red", s=200)
+            img_axes, axes_connects = get_axes(np.copy(K), np.linalg.inv(c2w), 1.5)
 
+            plt.figure()
             plt.imshow(rgb8)
             for i in range(len(connects)):
                 # if i >= 2:
@@ -350,18 +375,35 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 pt2 = img_box[connects[i][1], :]
                 x = [pt1[0], pt2[0]]
                 y = [pt1[1], pt2[1]]
-                plt.plot(x, y, color="red", clip_on=True, linewidth=3)
+                # plt.plot(x, y, color="red", clip_on=True, linewidth=3)
 
                 # print(connects[i], pt1, pt2)
                 # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
                 # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
                 # plt.show()
 
-            plt.show()
-            can_save_path = "novel_renderings/firearm_sub_add_post_c2w_inv_can/%s_%d.png" % (model, i)
+            color_order = ["red", "green", "blue"]
+            for i in range(len(axes_connects)):
+                pt1 = img_axes[axes_connects[i][0], :]
+                pt2 = img_axes[axes_connects[i][1], :]
+                x = [pt1[0], pt2[0]]
+                y = [pt1[1], pt2[1]]
+                # import pdb
+                # pdb.set_trace()
+                # plt.arrow(pt1[0], pt1[1], pt2[0] - pt1[0], pt2[1] - pt1[1], width=10, ec=color_order[i])
+                # plt.plot(x, y, color="red", clip_on=True, linewidth=3)
+
+                # print(connects[i], pt1, pt2)
+                # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
+                # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
+                # plt.show()
+
+            can_save_path = "canonical_renderings/firearm/%s_%d.png" % (model, i)
+            plt.savefig(can_save_path)
+            # plt.show()
             # if not os.path.exists(os.path.dirname(can_save_path)):
                 # os.makedirs(os.path.dirname(can_save_path))
-            imageio.imwrite(can_save_path, rgb8)
+            # imageio.imwrite(can_save_path, rgb8)
 
             if render_kwargs['retdepth']:
                 # weight8 = weights[-1]

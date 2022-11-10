@@ -10,6 +10,7 @@ import random
 import matplotlib.pyplot as plt
 import pickle
 import h5py
+from scipy.spatial.transform import Rotation as R
 
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -125,8 +126,12 @@ def load_dataset(directory, canonical_pose = None):
             # final_pose = np.linalg.inv(final_pose)
             # pose = final_pose
 
+            fix_pose = np.identity(4)
+            fix_pose[:3, :3] = R.from_euler('x', 180, degrees=True).as_matrix()
+
             canonical_pose_4 = np.identity(4)
             canonical_pose_4[:3, :3] = np.linalg.inv(canonical_pose)
+            canonical_pose_4 = fix_pose @ canonical_pose_4 
 
             t = np.array([0.0, -0.5, 4.5]).T
             final_pose = np.identity(4)
@@ -214,7 +219,7 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
         n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         all_depths.append(n_depth)
     
-    # all_poses = np.array([all_poses[all_ids.index("left_5")]])
+    all_poses = np.array([all_poses[all_ids.index("left_5")]])
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
