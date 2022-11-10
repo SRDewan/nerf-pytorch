@@ -160,6 +160,39 @@ def load_dataset_old(directory, canonical_pose = None):
 
     return imgs, cams
 
+def viewmatrix(z, up, pos):
+    vec2 = normalize(z)
+    vec1_avg = up
+    vec0 = normalize(np.cross(vec1_avg, vec2))
+    vec1 = normalize(np.cross(vec2, vec0))
+    m = np.stack([vec0, vec1, vec2, pos], 1)
+    return m
+
+def normalize(x):
+    return x / np.linalg.norm(x)
+
+def poses_avg(poses):
+    center = poses[:, :3, 3].mean(0)
+    vec2 = normalize(poses[:, :3, 2].sum(0))
+    up = poses[:, :3, 1].sum(0)
+    # c2w = np.concatenate([viewmatrix(vec2, up, center), hwf], 1)
+    c2w = viewmatrix(vec2, up, center)
+
+    return c2w
+
+def recenter_poses(poses):
+    poses_ = poses+0
+    bottom = np.reshape([0,0,0,1.], [1,4])
+    c2w = poses_avg(poses)
+    c2w = np.concatenate([c2w[:3,:4], bottom], -2)
+    bottom = np.tile(np.reshape(bottom, [1,1,4]), [poses.shape[0],1,1])
+    poses = np.concatenate([poses[:,:3,:4], bottom], -2)
+
+    poses = np.linalg.inv(c2w) @ poses
+    poses_[:,:3,:4] = poses[:,:3,:4]
+    poses = poses_
+    return poses
+
 def convert_frame(transformation_mat):
     flip_x = np.identity(4)
     flip_x[2, 2] *= -1
@@ -171,7 +204,7 @@ def convert_frame(transformation_mat):
     return (np.linalg.inv(flip_x) @ transformation_mat)
 
 def load_dataset(directory, scale = 1.0, canonical_pose = None):
-    params_path = os.path.join(os.path.dirname(directory), "07_11_params.txt")
+    params_path = os.path.join(os.path.dirname(directory), "09_11_params.txt")
     params = np.loadtxt(f"{params_path}",
             dtype=[
                 ('cam_id', int), ('width', int), ('height', int),
@@ -186,6 +219,8 @@ def load_dataset(directory, scale = 1.0, canonical_pose = None):
 
     params = np.sort(params, order='cam_name')
     proj_mats = {}
+    extrs = []
+    extrs_map = {}
 
     imgs = {}
     image_dir = directory
@@ -199,16 +234,20 @@ def load_dataset(directory, scale = 1.0, canonical_pose = None):
         r = R.from_quat(qvec).as_matrix()
         extr = np.vstack([np.hstack([r, tvec[:,None]]), np.zeros((1, 4))])
         extr[3, 3] = 1
-        extr = convert_frame(extr)
+
+        # extr = convert_frame(extr)
         extr = np.linalg.inv(extr)
+        # extr = np.concatenate([extr[:, 1:2], -extr[:, 0:1], extr[:, 2:]], 1)
+        # extrs.append(extr)
+        # extrs_map[len(extrs) - 1] = i
         # extr = extr[:3]
     
         intr = np.eye(3)
         intr[0, 0] = params[i]['fx'] * scale
-        intr[1, 1] = params[i]['fy'] * scale
+        intr[1, 1] = -params[i]['fy'] * scale
         intr[0, 2] = params[i]['cx'] * scale
         intr[1, 2] = params[i]['cy'] * scale
-        intr[2, 2] = 1
+        intr[2, 2] = -1
 
         # proj_mats[params[i]['cam_name']] = intr @ extr
         w = params[i]['width'] * scale
@@ -259,6 +298,11 @@ def load_dataset(directory, scale = 1.0, canonical_pose = None):
         # imgs[i]["mask_path"] = os.path.join(mask_dir, "%s/%s_seg.png" % (image_parent_dir, image_id))
         # imgs[i]["depth_path"] = os.path.join(depth_dir, "%s/%s_depth.npz" % (image_parent_dir, image_id))
 
+    # extrs = np.array(extrs)
+    # extrs = recenter_poses(extrs)
+    # for i in range(len(extrs)):
+        # imgs[extrs_map[i]]["pose"] = extrs[i] 
+
     return imgs, None
 
 def pallette_to_labels(mask):
@@ -286,23 +330,32 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
 
         all_ids.append(imgs[index]["camera_id"])
 
+        newK = []
         n_image = imageio.imread(imgs[index]["path"]) / 255.0
         K = np.copy(imgs[index]["K"])
-        # K[1][1] *= -1
-        # K[2][2] *= -1
-        n_image = cv2.undistort(n_image[:, :, :3], K, imgs[index]["distortion"]) 
+        K[1][1] *= -1
+        K[2][2] *= -1
+        newK, roi = cv2.getOptimalNewCameraMatrix(K, imgs[index]["distortion"], (n_image.shape[1], n_image.shape[0]), 1, (n_image.shape[1], n_image.shape[0]))
+        n_image = cv2.undistort(n_image[:, :, :3], K, imgs[index]["distortion"], None, newK) 
+        n_image = n_image[roi[1]:roi[1] + roi[3], roi[0]:roi[0] + roi[2]]
+        newK[1][1] *= -1
+        newK[2][2] *= -1
 
         h, w = n_image.shape[:2]
         resized_h = round(h * res)
         resized_w = round(w * res)
         n_image = cv2.resize(n_image, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
+        n_image = np.array(n_image).astype(np.float32)
         all_imgs.append(n_image)
 
         n_pose = imgs[index]["pose"]
         all_poses.append(n_pose)
         
         if type(cams) == list:
-            cams.append(imgs[index]["K"]) 
+            if newK != []:
+                cams.append(newK) 
+            else:
+                cams.append(imgs[index]["K"]) 
 
         # n_seg_mask = cv2.imread(imgs[index]["mask_path"], cv2.IMREAD_GRAYSCALE)
         # n_seg_mask = cv2.resize(n_seg_mask, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
@@ -315,7 +368,7 @@ def load_brown_real_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = No
         # n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         # all_depths.append(n_depth)
     
-    all_imgs = np.array(all_imgs).astype(np.float32)
+    # all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
     # all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     # all_depths = np.array(all_depths).astype(np.float32)
