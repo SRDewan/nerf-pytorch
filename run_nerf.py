@@ -35,7 +35,7 @@ import math
 from sklearn.cluster import KMeans
 import h5py
 import pickle
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as R
 import nerfacc
 from nerfacc import ContractionType, OccupancyGrid
 
@@ -368,24 +368,24 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
 
             plt.figure()
             plt.imshow(rgb8)
-            for i in range(len(connects)):
-                # if i >= 2:
+            for j in range(len(connects)):
+                # if j >= 2:
                     # break
-                pt1 = img_box[connects[i][0], :]
-                pt2 = img_box[connects[i][1], :]
+                pt1 = img_box[connects[j][0], :]
+                pt2 = img_box[connects[j][1], :]
                 x = [pt1[0], pt2[0]]
                 y = [pt1[1], pt2[1]]
                 # plt.plot(x, y, color="red", clip_on=True, linewidth=3)
 
-                # print(connects[i], pt1, pt2)
+                # print(connects[j], pt1, pt2)
                 # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
                 # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
                 # plt.show()
 
             color_order = ["red", "green", "blue"]
-            for i in range(len(axes_connects)):
-                pt1 = img_axes[axes_connects[i][0], :]
-                pt2 = img_axes[axes_connects[i][1], :]
+            for j in range(len(axes_connects)):
+                pt1 = img_axes[axes_connects[j][0], :]
+                pt2 = img_axes[axes_connects[j][1], :]
                 x = [pt1[0], pt2[0]]
                 y = [pt1[1], pt2[1]]
                 # import pdb
@@ -398,12 +398,12 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
                 # plt.show()
 
-            can_save_path = "canonical_renderings/firearm/%s_%d.png" % (model, i)
-            plt.savefig(can_save_path)
+            can_save_path = "canonical_renderings/plane/%s_%d.png" % (model, i)
+            # plt.savefig(can_save_path)
             # plt.show()
             # if not os.path.exists(os.path.dirname(can_save_path)):
                 # os.makedirs(os.path.dirname(can_save_path))
-            # imageio.imwrite(can_save_path, rgb8)
+            imageio.imwrite(can_save_path, rgb8)
 
             if render_kwargs['retdepth']:
                 # weight8 = weights[-1]
@@ -539,6 +539,7 @@ def create_nerf(args):
     render_kwargs_test['N_single_obj_samples'] = args.N_single_obj_samples
     render_kwargs_test['grad_en'] = args.grad_en
     # render_kwargs_test['gt_register'] = args.gt_register
+    render_kwargs_test['random_rot'] = args.random_rot
 
     return render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer
 
@@ -899,6 +900,8 @@ def config_parser():
                         help='canonical data directory')
     parser.add_argument("--model_name", type=str, default="", 
                         help='model name')
+    parser.add_argument("--random_rot", action='store_true', 
+                        help='random rotation during sigma extraction and canonical rendering to simulate non_canonical field')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -1150,6 +1153,13 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     y = np.linspace(ymin, ymax, N)
     z = np.linspace(zmin, zmax, N)
     samples = np.stack(np.meshgrid(x, y, z), -1)
+    if kwargs['random_rot']:
+        x_angle = np.random.uniform(0, 180)
+        y_angle = np.random.uniform(0, 180)
+        random_rot = R.from_euler('zyx', [0, y_angle, x_angle], degrees=True).as_matrix()
+        print("Random Rotation = ", random_rot)
+        samples = random_rot @ samples.reshape(-1, 3).T
+        samples = samples.T.reshape(N, N, N, 3)
 
     xyz_ = torch.FloatTensor(np.stack(np.meshgrid(x, y, z), -1).reshape(N ** 2, N, 3)).cuda()
     dir_ = torch.zeros(N ** 2, 3).cuda()
@@ -1226,6 +1236,9 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     if kwargs['semantic_en']:
         occ_inds = np.where(np.logical_and(sigma > sigma_threshold, semantic_map != 0))
     samples = np.stack(np.meshgrid(x, y, z), -1)
+    if kwargs['random_rot']:
+        samples = random_rot @ samples.reshape(-1, 3).T
+        samples = samples.T.reshape(N, N, N, 3)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
     min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
     max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
@@ -1591,8 +1604,8 @@ def train(args):
     elif args.dataset_type == 'brics':
         canonical_pose = None
         if args.canonical_path is not None:
-            canonical_poses_path = os.path.join(args.canonical_path, "firearm_canonical.h5") 
-            canonical_models_path = os.path.join(args.canonical_path, "firearm_files.txt")
+            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
+            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
             canonical_poses = load_h5(canonical_poses_path)
             canonical_models = load_models(canonical_models_path)
             if args.model_name not in canonical_models:
@@ -1609,11 +1622,17 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
-            # empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
-            # empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
-            # images = np.where(empty_images - images < 0.05, 1, images)[..., :3]
+            empty_scene_path = "/home/ubuntu/efs/brics-simulator/renderings/empty"
+            empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
+            images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
 
-            images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
+            for i in range(len(images)):
+                save_path = "original_renderings/car/%s/%d.png" % (args.model_name, i)
+                if not os.path.exists(os.path.dirname(save_path)):
+                    os.makedirs(os.path.dirname(save_path))
+                # imageio.imwrite(save_path, images[i])
+
+            # images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
 
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
@@ -2104,12 +2123,21 @@ if __name__=='__main__':
 
     parser = config_parser()
     args = parser.parse_args()
+    sel = [
+            "02958343_2d730665526ee755a134736201a79843",
+            "02958343_73e977c312f8628b1d65faadf0df8f28",
+            "02958343_5130947e5f18e73a8321b7d65a99d2a",
+            "02958343_ad6572f7ac90b9bf2949d5274e5ab643",
+            "02958343_c72e9ce6c6f16bb83b8642d7bb5bef13"
+    ]
 
     if args.multi_scene and args.render_only:
         for dir_name in os.listdir(args.root_dir):
             args.expname = dir_name
             category_name = dir_name.split("_")[1]
             args.model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
+            # if args.model_name not in sel:
+            #     continue
             print("Processing ", args.model_name)
             # if args.canonical_path is None:
                 # args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
