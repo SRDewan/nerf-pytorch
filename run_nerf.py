@@ -43,7 +43,7 @@ device_idx = 0
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda:%d" % (device_idx) if torch.cuda.is_available() else "cpu")
-np.random.seed(0)
+# np.random.seed(0)
 DEBUG = False
 
 
@@ -1178,7 +1178,9 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
         x_angle = np.random.uniform(0, 180)
         y_angle = np.random.uniform(0, 180)
         random_rot = R.from_euler('zyx', [0, y_angle, x_angle], degrees=True).as_matrix()
-        print("Random Rotation = ", random_rot)
+        r = R.random()
+        random_rot = r.as_matrix()
+        print("Random Rotation = ", random_rot, "\nEuler = ", r.as_euler("zyx", degrees=True))
 
         rot_grid = get_xyz_grid((1, 1, N, N, N), torch.from_numpy(random_rot).to(device).unsqueeze(0)).squeeze(0).detach().cpu().numpy()
 
@@ -1188,8 +1190,8 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
         samples = samples + center
         samples = samples.reshape(N, N, N, 3)
 
-        min_corner = np.array([np.min(samples[:, 0]), np.min(samples[:, 1]), np.min(samples[:, 2])])
-        max_corner = np.array([np.max(samples[:, 0]), np.max(samples[:, 1]), np.max(samples[:, 2])])
+        min_corner = np.array([np.min(samples[..., 0]), np.min(samples[..., 1]), np.min(samples[..., 2])])
+        max_corner = np.array([np.max(samples[..., 0]), np.max(samples[..., 1]), np.max(samples[..., 2])])
         print("Grid corners = ", min_corner, max_corner)
 
         rots = []
@@ -1202,6 +1204,10 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
         rots.append(random_rot)
         rots = np.array(rots)
         np.save(rots_path, rots)
+
+    min_corner = np.array([np.min(samples[..., 0]), np.min(samples[..., 1]), np.min(samples[..., 2])])
+    max_corner = np.array([np.max(samples[..., 0]), np.max(samples[..., 1]), np.max(samples[..., 2])])
+    print("Grid corners just before = ", min_corner, max_corner)
 
     xyz_ = torch.FloatTensor(samples.reshape(N ** 2, N, 3)).cuda()
     dir_ = torch.zeros(N ** 2, 3).cuda()
@@ -1226,9 +1232,9 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
 
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
-    plot_sigmas(sigma, save_path, 'original_sigmas.png')
-    sigmas_filename = os.path.join(save_path, 'original_sigmas_%d.npy' % (N))
-    np.save(sigmas_filename, sigma)
+    # plot_sigmas(sigma, save_path, 'original_sigmas.png')
+    # sigmas_filename = os.path.join(save_path, 'original_sigmas_%d.npy' % (N))
+    # np.save(sigmas_filename, sigma)
 
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
     z_vals = torch.Tensor(z).to(device).unsqueeze(0).repeat(N * N, 1)
@@ -1256,14 +1262,14 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
 
     pos_sigma_inds = np.where(sigma > 0)
     pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
-    plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
+    # plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
 
     thresh_sigma_inds = np.where(sigma > sigma_threshold)
     thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
-    plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
+    # plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
 
     clustered_sigma = cluster(sigma, 2)
-    plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
+    # plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
 
     if kwargs['semantic_en']:
         classes = np.unique(semantic_map)
@@ -1283,15 +1289,15 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
         # samples = samples.T.reshape(N, N, N, 3)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(samples.reshape(-1, 3))
-    o3d.visualization.draw_geometries([pcd])
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(samples.reshape(-1, 3))
+    # o3d.visualization.draw_geometries([pcd])
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(occ_samples.reshape(-1, 3))
     o3d.visualization.draw_geometries([pcd])
 
-    min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
-    max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
+    min_corner = np.array([np.min(occ_samples[..., 0]), np.min(occ_samples[..., 1]), np.min(occ_samples[..., 2])])
+    max_corner = np.array([np.max(occ_samples[..., 0]), np.max(occ_samples[..., 1]), np.max(occ_samples[..., 2])])
     min_pt, max_pt = get_max_cube(min_corner, max_corner)
     box_pcd, coords = get_coords(min_pt, max_pt, N)
     # box_pcd, coords = get_coords(min_corner, max_corner, N)
@@ -1337,15 +1343,15 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
     random_sigma = random_raw[..., 3].detach().cpu().numpy().reshape((N_random, N_random, N_random))
-    plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
+    # plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
 
     pos_sigma_inds = np.where(sigma > 0)
     pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
-    plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
+    # plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
 
     thresh_sigma_inds = np.where(sigma > sigma_threshold)
     thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
-    plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
+    # plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
 
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
