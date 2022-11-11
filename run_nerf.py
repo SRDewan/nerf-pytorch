@@ -539,7 +539,7 @@ def create_nerf(args):
     render_kwargs_test['N_single_obj_samples'] = args.N_single_obj_samples
     render_kwargs_test['grad_en'] = args.grad_en
     # render_kwargs_test['gt_register'] = args.gt_register
-    render_kwargs_test['random_rot'] = args.random_rot
+    # render_kwargs_test['random_rot'] = args.random_rot
 
     return render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer
 
