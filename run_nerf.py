@@ -398,9 +398,9 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
                 # plt.show()
 
-            can_save_path = "canonical_renderings/plane/%s_%d.png" % (model, i)
+            can_save_path = "canonical_renderings/chair/%s_%d.png" % (model, i)
             # plt.savefig(can_save_path)
-            # plt.show()
+            plt.show()
             # if not os.path.exists(os.path.dirname(can_save_path)):
                 # os.makedirs(os.path.dirname(can_save_path))
             imageio.imwrite(can_save_path, rgb8)
@@ -1141,6 +1141,26 @@ def extract_single_obj_sigmas(samples, sigmas, semantic_map, sigma_threshold, cl
     np.save(samples_filename, class_samples)
 
 
+def get_xyz_grid(shape, rotation = None):
+    """
+    Returns an xyz grid in the normalized coordinates to perform density convolution
+
+    grid - B, C, H, W, D
+
+    out - B, C, H, W, 3
+    """
+
+    if rotation is not None:
+        theta = rotation
+    else:
+        theta = torch.eye(3).unsqueeze(0).repeat(shape[0], 1, 1)
+    t = torch.tensor([0, 0, 0]).unsqueeze(0).unsqueeze(2).repeat(theta.shape[0], 1, 1)
+    theta = torch.cat([theta, t], dim = -1)
+    out_grid = torch.nn.functional.affine_grid(theta, shape, align_corners = True)
+
+    return out_grid
+
+
 def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
     print(save_path)
     # define the dense grid for query
@@ -1148,6 +1168,7 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     xmin, xmax = x_range
     ymin, ymax = y_range
     zmin, zmax = z_range
+    center = np.array([0, -0.5, 4.5])
     # assert xmax-xmin == ymax-ymin == zmax-zmin, 'the ranges must have the same length!'
     x = np.linspace(xmin, xmax, N)
     y = np.linspace(ymin, ymax, N)
@@ -1158,10 +1179,31 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
         y_angle = np.random.uniform(0, 180)
         random_rot = R.from_euler('zyx', [0, y_angle, x_angle], degrees=True).as_matrix()
         print("Random Rotation = ", random_rot)
-        samples = random_rot @ samples.reshape(-1, 3).T
-        samples = samples.T.reshape(N, N, N, 3)
 
-    xyz_ = torch.FloatTensor(np.stack(np.meshgrid(x, y, z), -1).reshape(N ** 2, N, 3)).cuda()
+        rot_grid = get_xyz_grid((1, 1, N, N, N), torch.from_numpy(random_rot).to(device).unsqueeze(0)).squeeze(0).detach().cpu().numpy()
+
+        # samples = samples.reshape(-1, 3) - center
+        # samples = random_rot @ samples.T
+        samples = rot_grid.reshape(-1, 3) * 2.5
+        samples = samples + center
+        samples = samples.reshape(N, N, N, 3)
+
+        min_corner = np.array([np.min(samples[:, 0]), np.min(samples[:, 1]), np.min(samples[:, 2])])
+        max_corner = np.array([np.max(samples[:, 0]), np.max(samples[:, 1]), np.max(samples[:, 2])])
+        print("Grid corners = ", min_corner, max_corner)
+
+        rots = []
+        parent = os.path.dirname(os.path.dirname(save_path))
+        rots_path = os.path.join(parent, "random_rots.npy")
+        if os.path.exists(rots_path):
+            rots = np.load(rots_path)
+            rots = list(rots)
+
+        rots.append(random_rot)
+        rots = np.array(rots)
+        np.save(rots_path, rots)
+
+    xyz_ = torch.FloatTensor(samples.reshape(N ** 2, N, 3)).cuda()
     dir_ = torch.zeros(N ** 2, 3).cuda()
            # sigma is independent of direction, so any value here will produce the same result 
     # predict sigma (occupancy) for each grid location
@@ -1235,17 +1277,26 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     occ_inds = np.where(clustered_sigma > 0)
     if kwargs['semantic_en']:
         occ_inds = np.where(np.logical_and(sigma > sigma_threshold, semantic_map != 0))
-    samples = np.stack(np.meshgrid(x, y, z), -1)
-    if kwargs['random_rot']:
-        samples = random_rot @ samples.reshape(-1, 3).T
-        samples = samples.T.reshape(N, N, N, 3)
+    # samples = np.stack(np.meshgrid(x, y, z), -1)
+    # if kwargs['random_rot']:
+        # samples = random_rot @ samples.reshape(-1, 3).T
+        # samples = samples.T.reshape(N, N, N, 3)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(samples.reshape(-1, 3))
+    o3d.visualization.draw_geometries([pcd])
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(occ_samples.reshape(-1, 3))
+    o3d.visualization.draw_geometries([pcd])
+
     min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
     max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
     min_pt, max_pt = get_max_cube(min_corner, max_corner)
     box_pcd, coords = get_coords(min_pt, max_pt, N)
+    # box_pcd, coords = get_coords(min_corner, max_corner, N)
     random_coords = get_random_coords(min_pt, max_pt, N_random ** 3)
-    print(min_corner, max_corner, min_pt, max_pt)
+    print("Min and max: ", min_corner, max_corner, min_pt, max_pt)
 
     xyz_ = torch.FloatTensor(coords.reshape(N ** 2, N, 3)).cuda()
     dir_ = torch.zeros(N ** 2, 3).cuda()
@@ -1333,6 +1384,14 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     samples = samples.reshape((N, N, N, 3))
     samples_filename = os.path.join(save_path, 'samples_%d.npy' % (N))
     np.save(samples_filename, samples)
+
+    # print("Hi, visualizing now!")
+    # clustered_sigma = cluster(sigma, 2)
+    # occ_inds = np.where(clustered_sigma > 0)
+    # occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(occ_samples.reshape(-1, 3))
+    # o3d.visualization.draw_geometries([pcd])
 
     random_samples = random_coords.reshape((-1, 3))
     random_samples = translate_obj(random_samples)
@@ -1603,16 +1662,20 @@ def train(args):
 
     elif args.dataset_type == 'brics':
         canonical_pose = None
+        input_pose = None
         if args.canonical_path is not None:
-            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
-            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
+            input_poses_path = os.path.join(args.canonical_path, "chair_input_rot.h5") 
+            canonical_poses_path = os.path.join(args.canonical_path, "chair_canonical.h5") 
+            canonical_models_path = os.path.join(args.canonical_path, "chair_files.txt")
+            input_poses = load_h5(input_poses_path)
             canonical_poses = load_h5(canonical_poses_path)
             canonical_models = load_models(canonical_models_path)
             if args.model_name not in canonical_models:
                 return
+            input_pose = input_poses[canonical_models.index(args.model_name)]
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
-        images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
+        images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose, input_pose)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -1622,7 +1685,7 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
-            empty_scene_path = "/home/ubuntu/efs/brics-simulator/renderings/empty"
+            empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
             empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
             images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
 
@@ -2132,7 +2195,7 @@ if __name__=='__main__':
     ]
 
     if args.multi_scene and args.render_only:
-        for dir_name in os.listdir(args.root_dir):
+        for dir_name in sorted(os.listdir(args.root_dir)):
             args.expname = dir_name
             category_name = dir_name.split("_")[1]
             args.model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]

@@ -86,7 +86,7 @@ def read_pickle_file(path):
 
     return objects 
 
-def load_dataset(directory, canonical_pose = None):
+def load_dataset(directory, canonical_pose = None, input_pose = None):
     # print(directory)
 
     cam_data_path = os.path.join(directory, "cam_data.pkl")
@@ -112,6 +112,14 @@ def load_dataset(directory, canonical_pose = None):
         pose = np.vstack([pose, np.array([0, 0, 0, 1])])
         pose = np.linalg.inv(pose)
         # print(pose)
+
+        if input_pose is not None:
+            input_pose_4 = np.identity(4)
+            t = np.array([0.0, -0.5, 4.5]).T
+            input_pose_4[:3, -1] = -t
+            input_pose_4 = np.linalg.inv(input_pose) @ input_pose_4
+            input_pose_4[:3, -1] += t
+            pose = input_pose_4 @ pose
 
         if canonical_pose is not None:
             # canonical_pose_4 = np.identity(4)
@@ -155,7 +163,7 @@ def load_dataset(directory, canonical_pose = None):
 
     return imgs, cams
 
-def main_loader(root_dir, scale, canonical_pose = None):
+def main_loader(root_dir, scale, canonical_pose = None, input_pose = None):
     imgs, cams = load_dataset(root_dir, canonical_pose)
     #print(imgs)
     #print(cams)
@@ -187,8 +195,8 @@ def pallette_to_labels(mask):
 
     return mask
 
-def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None):
-    imgs, cams = main_loader(basedir, res, canonical_pose)
+def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, input_pose = None):
+    imgs, cams = main_loader(basedir, res, canonical_pose, input_pose)
     all_ids = []
     all_imgs = []
     all_poses = []
