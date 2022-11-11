@@ -1,0 +1,47 @@
+expname = brics_monitor_03211117_5f0119e9c7f437ff83361808b78d50c3_vanilla_box
+basedir = brics_logs/exps
+datadir = /home2/prajneya.kumar/brics-simulator/renderings/shapenet/monitor/03211117_5f0119e9c7f437ff83361808b78d50c3/
+dataset_type = brics
+testskip = 1
+max_ind = 54
+
+multi_scene = False
+root_dir = brics_logs/exps/
+render_only = True
+render_test = True
+model_name = 03211117_5f0119e9c7f437ff83361808b78d50c3
+
+no_batching = True
+ft_path = /home2/snehasis.banerjee/nerf-pytorch/brics_logs/monitor/brics_monitor_03211117_5f0119e9c7f437ff83361808b78d50c3_vanilla/019200.tar
+
+use_viewdirs = True
+white_bkgd = True
+lrate_decay = 500
+
+N_samples = 64
+N_importance = 128
+near = 0.1
+far = 20.0
+N_rand = 1024
+lrate = 0.0001
+semantic_en = False
+num_classes = 2
+
+rgb_wt = 1
+semantic_wt = 0
+rays_sparsity_wt = 0.0 # 0.001
+rays_sparsity_scale = 0.05
+semantic_rays_sparsity_wt = 0.0 # 0.001
+semantic_rays_sparsity_scale = 0.05
+
+precrop_iters = 480
+precrop_frac = 0.5
+iters = 9600
+
+x_range = [-2.5, 2.5]
+y_range = [-3.0, 2.0]
+z_range = [2.0, 7.0]
+sigma_threshold = 2.0
+
+res = 0.1
+wand_en = False
