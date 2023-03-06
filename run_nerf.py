@@ -36,8 +36,6 @@ from sklearn.cluster import KMeans
 import h5py
 import pickle
 from scipy.spatial.transform import Rotation as R
-import nerfacc
-from nerfacc import ContractionType, OccupancyGrid
 
 device_idx = 0
 gc.collect()
@@ -291,7 +289,7 @@ def get_axes(K, pose, scale=1.0):
 
     return img_pts[:2, :].T, connects
 
-def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None):
+def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None, category=""):
 
     H, W, focal = hwf
 
@@ -398,9 +396,12 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
                 # plt.show()
 
-            can_save_path = "canonical_renderings/chair/%s_%d.png" % (model, i)
+            can_save_path = "canonical_renderings/%s/%s_%d.png" % (category, model, i)
+            if not os.path.exists(os.path.dirname(can_save_path)):
+                os.makedirs(os.path.dirname(can_save_path))
+
             # plt.savefig(can_save_path)
-            plt.show()
+            # plt.show()
             # if not os.path.exists(os.path.dirname(can_save_path)):
                 # os.makedirs(os.path.dirname(can_save_path))
             imageio.imwrite(can_save_path, rgb8)
@@ -902,6 +903,8 @@ def config_parser():
                         help='model name')
     parser.add_argument("--random_rot", action='store_true', 
                         help='random rotation during sigma extraction and canonical rendering to simulate non_canonical field')
+    parser.add_argument("--category", type=str, default="", 
+                        help='category name')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -961,9 +964,9 @@ def config_parser():
                         help='frequency of tensorboard image logging')
     parser.add_argument("--i_weights", type=int, default=10000, 
                         help='frequency of weight ckpt saving')
-    parser.add_argument("--i_testset", type=int, default=50000, 
+    parser.add_argument("--i_testset", type=int, default=5000000, 
                         help='frequency of testset saving')
-    parser.add_argument("--i_video",   type=int, default=50000, 
+    parser.add_argument("--i_video",   type=int, default=5000000, 
                         help='frequency of render_poses video saving')
     parser.add_argument("--grad_en", action='store_true', 
                         help='predict a gradient map in addition to regular NeRF outputs (only during testing/evaluation)')
@@ -1670,14 +1673,18 @@ def train(args):
         canonical_pose = None
         input_pose = None
         if args.canonical_path is not None:
-            input_poses_path = os.path.join(args.canonical_path, "chair_input_rot.h5") 
-            canonical_poses_path = os.path.join(args.canonical_path, "chair_canonical.h5") 
-            canonical_models_path = os.path.join(args.canonical_path, "chair_files.txt")
+            input_poses_path = os.path.join(args.canonical_path, "%s_input_rot.h5" % (args.category)) 
+            canonical_poses_path = os.path.join(args.canonical_path, "%s_canonical.h5" % (args.category)) 
+            canonical_models_path = os.path.join(args.canonical_path, "%s_files.txt" % (args.category))
+
             input_poses = load_h5(input_poses_path)
             canonical_poses = load_h5(canonical_poses_path)
             canonical_models = load_models(canonical_models_path)
+
             if args.model_name not in canonical_models:
+                print("%s not found in canonical data" % (args.model_name))
                 return
+
             input_pose = input_poses[canonical_models.index(args.model_name)]
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
@@ -1696,7 +1703,7 @@ def train(args):
             images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
 
             for i in range(len(images)):
-                save_path = "original_renderings/car/%s/%d.png" % (args.model_name, i)
+                save_path = "original_renderings/%s/%s/%d.png" % (args.category, args.model_name, i)
                 if not os.path.exists(os.path.dirname(save_path)):
                     os.makedirs(os.path.dirname(save_path))
                 # imageio.imwrite(save_path, images[i])
@@ -1713,17 +1720,20 @@ def train(args):
     elif args.dataset_type == 'brown_real':
         canonical_pose = None
         if args.canonical_path is not None:
-            canonical_poses_path = os.path.join(args.canonical_path, "car_canonical.h5") 
-            canonical_models_path = os.path.join(args.canonical_path, "car_files.txt")
+            canonical_poses_path = os.path.join(args.canonical_path, "%s_canonical.h5" % (args.category)) 
+            canonical_models_path = os.path.join(args.canonical_path, "%s_files.txt" % (args.category))
+
             canonical_poses = load_h5(canonical_poses_path)
             canonical_models = load_models(canonical_models_path)
+
             if args.model_name not in canonical_models:
                 return
+
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
         images, poses, render_poses, meta, i_split, hwf = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
         K = meta[0]
-        print('Loaded brics', len(images), poses.shape, render_poses.shape, K, hwf, args.datadir)
+        print('Loaded brics', len(images), poses.shape, K, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
         near = args.near
@@ -1731,7 +1741,7 @@ def train(args):
 
         if args.white_bkgd:
             images = images
-            # images = images[..., :3]
+            images = images[..., :3]
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
             # images = images[..., :3] * binary_masks + (1. - binary_masks)
@@ -1804,7 +1814,7 @@ def train(args):
             rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
         elif args.canonical_path is not None:
             with torch.no_grad():
-                rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
+                rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name, category=args.category)
         elif args.render_test:
             with torch.no_grad():
                 rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
@@ -2193,11 +2203,6 @@ if __name__=='__main__':
     parser = config_parser()
     args = parser.parse_args()
     sel = [
-            "02958343_2d730665526ee755a134736201a79843",
-            "02958343_73e977c312f8628b1d65faadf0df8f28",
-            "02958343_5130947e5f18e73a8321b7d65a99d2a",
-            "02958343_ad6572f7ac90b9bf2949d5274e5ab643",
-            "02958343_c72e9ce6c6f16bb83b8642d7bb5bef13"
     ]
 
     if args.multi_scene and args.render_only:
@@ -2206,7 +2211,7 @@ if __name__=='__main__':
             category_name = dir_name.split("_")[1]
             args.model_name = dir_name.split("_")[2] + "_" + dir_name.split("_")[3]
             # if args.model_name not in sel:
-            #     continue
+                # continue
             print("Processing ", args.model_name)
             # if args.canonical_path is None:
                 # args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
