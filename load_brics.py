@@ -108,59 +108,31 @@ def load_dataset(directory, canonical_pose = None, input_pose = None):
 
         cam = cam_data[image_id]["K"]
         [cams["fx"], cams["fy"], cams["cx"], cams["cy"]] = cam
-        pose = cam_data[image_id]["extrinsics_opencv"]
-        pose = np.vstack([pose, np.array([0, 0, 0, 1])])
-        pose = np.linalg.inv(pose)
+        c2w = cam_data[image_id]["extrinsics_opencv"]
+        c2w = np.vstack([c2w, np.array([0, 0, 0, 1])])
+        c2w = np.linalg.inv(c2w)
+        pose = c2w
         # print(pose)
 
+        input_pose_4 = np.identity(4)
+        canonical_pose_4 = np.identity(4)
+        transform = False
+
         if input_pose is not None:
-            input_pose_temp = np.identity(4)
-            input_pose_temp[:3, :3] = input_pose
+            input_pose_4[:3, :3] = input_pose
+            transform = True
 
-            # t = np.array([0.0, -0.5, 4.5]).T
-            # input_pose_4 = np.identity(4)
-            # input_pose_4[:3, -1] = -t
-            # input_pose_4 = input_pose_temp @ input_pose_4
-            # input_pose_4[:3, -1] += t
-            # pose = pose @ input_pose_4 
-
-            t = np.array([0.0, -0.5, 4.5]).T
-            final_pose = np.identity(4)
-            final_pose[:3, -1] = -t
-            pose = final_pose @ pose
-            # centered cameras
-            pose = input_pose_temp @ pose 
-            pose[:3, -1] += t
-
-        # canonical_pose = None
         if canonical_pose is not None:
-            # canonical_pose_4 = np.identity(4)
-            # canonical_pose_4[:3, :3] = canonical_pose
-
-            # t = np.array([0.0, -0.5, 4.5]).T
-            # final_pose = np.identity(4)
-            # final_pose[:3, -1] = -t
-            # final_pose = canonical_pose_4 @ final_pose
-            # final_pose[:3, -1] += t
-            # final_pose = pose @ final_pose
-            # final_pose = np.linalg.inv(final_pose)
-            # pose = final_pose
-
-            fix_pose = np.identity(4)
-            fix_pose[:3, :3] = R.from_euler('y', 90, degrees=True).as_matrix()
-
-            canonical_pose_4 = np.identity(4)
             canonical_pose_4[:3, :3] = canonical_pose
-            # canonical_pose_4 = fix_pose @ canonical_pose_4 
+            transform = True
 
+        if transform:
             t = np.array([0.0, -0.5, 4.5]).T
-            final_pose = np.identity(4)
-            final_pose[:3, -1] = -t
-            final_pose = canonical_pose_4 @ final_pose
-            final_pose[:3, -1] += t
-            final_pose = final_pose @ pose
-            # final_pose = np.linalg.inv(final_pose)
-            pose = final_pose
+            nerf_w_2_transform_w = np.identity(4)
+            nerf_w_2_transform_w[:3, -1] = -t
+            temp = nerf_w_2_transform_w @ c2w 
+            pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ temp 
+            pose[:3, -1] += t
 
         imgs[i] = {
             "camera_id": image_id,
@@ -239,9 +211,11 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, i
         n_depth = cv2.resize(n_depth, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
         all_depths.append(n_depth)
     
-    all_poses = np.array([all_poses[all_ids.index("left_5")]])
-    all_imgs = np.array(all_imgs).astype(np.float32)
     all_poses = np.array(all_poses)
+    all_poses = all_poses[[all_ids.index("left_4"), all_ids.index("left_5"), all_ids.index("left_6"), all_ids.index("front_4"), all_ids.index("front_5"), all_ids.index("front_6"), all_ids.index("right_4"), all_ids.index("right_5"), all_ids.index("right_6"), all_ids.index("back_4"), all_ids.index("back_5"), all_ids.index("back_6")], :, :]
+    # all_poses = np.array([all_poses[0]])
+    # all_poses = np.array(all_poses)[3:6, :, :]
+    all_imgs = np.array(all_imgs).astype(np.float32)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
 
