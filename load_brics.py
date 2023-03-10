@@ -63,13 +63,24 @@ def novel_pose_gen(novel_pose, camera_pose):
 
     return pose
 
-def pose_spherical(theta, phi, radius, cam_pose):
+# def pose_spherical(theta, phi, radius, cam_pose):
+    # c2w = trans_t(radius)
+    # c2w = rot_phi(phi/180.*np.pi) @ c2w
+    # c2w = rot_theta(theta/180.*np.pi) @ c2w
+    # c2w = torch.Tensor(np.array([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    # device = c2w.device
+    # c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
+    # c2w = torch.tensor(c2w).to(device)
+    # return c2w
+
+def pose_spherical(theta, phi, omega, radius):
     c2w = trans_t(radius)
-    c2w = rot_phi(phi/180.*np.pi) @ c2w
-    c2w = rot_theta(theta/180.*np.pi) @ c2w
-    c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    rot = np.identity(4)
+    rot[:3, :3] = R.from_rotvec([theta, phi, omega]).as_matrix()
+    c2w = torch.Tensor(rot) @ c2w
+    # c2w = torch.Tensor(np.array([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
     device = c2w.device
-    c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
+    # c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
     c2w = torch.tensor(c2w).to(device)
     return c2w
 
@@ -112,7 +123,12 @@ def load_dataset(directory, canonical_pose = None, input_pose = None):
         c2w = np.vstack([c2w, np.array([0, 0, 0, 1])])
         c2w = np.linalg.inv(c2w)
         pose = c2w
-        # print(pose)
+        # print(i, pose)
+
+        c2w = cam_data["left_5"]["extrinsics_opencv"]
+        c2w = np.vstack([c2w, np.array([0, 0, 0, 1])])
+        c2w = np.linalg.inv(c2w)
+        pose = c2w
 
         input_pose_4 = np.identity(4)
         canonical_pose_4 = np.identity(4)
@@ -131,7 +147,10 @@ def load_dataset(directory, canonical_pose = None, input_pose = None):
             nerf_w_2_transform_w = np.identity(4)
             nerf_w_2_transform_w[:3, -1] = -t
             temp = nerf_w_2_transform_w @ c2w 
-            pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ temp 
+            angle = np.linspace(0, 360, 60)[i]
+            circular_pose = pose_spherical(0.0, 0.0, angle, 0.0).cpu().numpy() 
+            pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ np.linalg.inv(circular_pose) @ temp
+            # pose = np.linalg.inv(canonical_pose_4) @ np.linalg.inv(circular_pose) @ temp
             pose[:3, -1] += t
 
         imgs[i] = {
@@ -212,9 +231,8 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, i
         all_depths.append(n_depth)
     
     all_poses = np.array(all_poses)
-    all_poses = all_poses[[all_ids.index("left_4"), all_ids.index("left_5"), all_ids.index("left_6"), all_ids.index("front_4"), all_ids.index("front_5"), all_ids.index("front_6"), all_ids.index("right_4"), all_ids.index("right_5"), all_ids.index("right_6"), all_ids.index("back_4"), all_ids.index("back_5"), all_ids.index("back_6")], :, :]
-    # all_poses = np.array([all_poses[0]])
-    # all_poses = np.array(all_poses)[3:6, :, :]
+    # all_poses = all_poses[[all_ids.index("left_4"), all_ids.index("left_5"), all_ids.index("left_6"), all_ids.index("front_4"), all_ids.index("front_5"), all_ids.index("front_6"), all_ids.index("right_4"), all_ids.index("right_5"), all_ids.index("right_6"), all_ids.index("back_4"), all_ids.index("back_5"), all_ids.index("back_6")], :, :]
+    all_poses = np.array(all_poses)[:1, :, :]
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
@@ -232,22 +250,22 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, i
     i_test = i_val
     i_split = [i_train, i_val, i_test]
 
-    render_poses = torch.stack([pose_spherical(angle, 30.0, 1.0, all_poses[0]) for angle in np.linspace(-180, 180, 40+1)[:-1]], 0)
+    # render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180, 180, 40 + 1)[:-1]], 0)
     render_poses = []
-    for angle in np.linspace(-180, 180, 5+1)[:-1]:
-            t = np.array([0.0, -0.5, 4.5]).T
-            final_pose = np.identity(4)
-            final_pose[:3, -1] = -t
+    # for angle in np.linspace(-180, 180, 5+1)[:-1]:
+            # t = np.array([0.0, -0.5, 4.5]).T
+            # final_pose = np.identity(4)
+            # final_pose[:3, -1] = -t
 
-            fix_pose = np.identity(4)
-            fix_pose[:3, :3] = R.from_euler('x', angle, degrees=True).as_matrix()
+            # fix_pose = np.identity(4)
+            # fix_pose[:3, :3] = R.from_euler('x', angle, degrees=True).as_matrix()
 
-            final_pose = fix_pose @ final_pose
-            final_pose[:3, -1] += t
-            final_pose = final_pose @ all_poses[0] 
-            # final_pose = np.linalg.inv(final_pose)
-            pose = final_pose
-            render_poses.append(pose)
+            # final_pose = fix_pose @ final_pose
+            # final_pose[:3, -1] += t
+            # final_pose = final_pose @ all_poses[0] 
+            # # final_pose = np.linalg.inv(final_pose)
+            # pose = final_pose
+            # render_poses.append(pose)
 
     # render_poses = all_poses
     render_poses = np.array(render_poses)
