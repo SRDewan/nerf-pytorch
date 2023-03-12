@@ -63,26 +63,26 @@ def novel_pose_gen(novel_pose, camera_pose):
 
     return pose
 
-# def pose_spherical(theta, phi, radius, cam_pose):
-    # c2w = trans_t(radius)
-    # c2w = rot_phi(phi/180.*np.pi) @ c2w
-    # c2w = rot_theta(theta/180.*np.pi) @ c2w
-    # c2w = torch.Tensor(np.array([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
-    # device = c2w.device
-    # c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
-    # c2w = torch.tensor(c2w).to(device)
-    # return c2w
-
-def pose_spherical(theta, phi, omega, radius):
+def pose_spherical(theta, phi, radius, cam_pose):
     c2w = trans_t(radius)
-    rot = np.identity(4)
-    rot[:3, :3] = R.from_rotvec([theta, phi, omega]).as_matrix()
-    c2w = torch.Tensor(rot) @ c2w
-    # c2w = torch.Tensor(np.array([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    c2w = rot_phi(phi/180.*np.pi) @ c2w
+    c2w = rot_theta(theta/180.*np.pi) @ c2w
+    c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
     device = c2w.device
     # c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
     c2w = torch.tensor(c2w).to(device)
     return c2w
+
+# def pose_spherical(theta, phi, omega, radius):
+    # c2w = trans_t(radius)
+    # rot = np.identity(4)
+    # rot[:3, :3] = R.from_rotvec([theta, phi, omega]).as_matrix()
+    # c2w = torch.Tensor(rot) @ c2w
+    # # c2w = torch.Tensor(np.array([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    # device = c2w.device
+    # # c2w = novel_pose_gen(c2w.detach().cpu().numpy(), cam_pose)
+    # c2w = torch.tensor(c2w).to(device)
+    # return c2w
 
 def read_pickle_file(path):
     objects = []
@@ -125,33 +125,34 @@ def load_dataset(directory, canonical_pose = None, input_pose = None):
         pose = c2w
         # print(i, pose)
 
-        c2w = cam_data["left_5"]["extrinsics_opencv"]
-        c2w = np.vstack([c2w, np.array([0, 0, 0, 1])])
-        c2w = np.linalg.inv(c2w)
-        pose = c2w
+        # c2w = cam_data["left_5"]["extrinsics_opencv"]
+        # c2w = np.vstack([c2w, np.array([0, 0, 0, 1])])
+        # c2w = np.linalg.inv(c2w)
+        # pose = c2w
 
-        input_pose_4 = np.identity(4)
-        canonical_pose_4 = np.identity(4)
-        transform = False
+        # input_pose_4 = np.identity(4)
+        # canonical_pose_4 = np.identity(4)
+        # transform = False
 
-        if input_pose is not None:
-            input_pose_4[:3, :3] = input_pose
-            transform = True
+        # if input_pose is not None:
+            # input_pose_4[:3, :3] = input_pose
+            # transform = True
 
-        if canonical_pose is not None:
-            canonical_pose_4[:3, :3] = canonical_pose
-            transform = True
+        # if canonical_pose is not None:
+            # canonical_pose_4[:3, :3] = canonical_pose
+            # transform = True
 
-        if transform:
-            t = np.array([0.0, -0.5, 4.5]).T
-            nerf_w_2_transform_w = np.identity(4)
-            nerf_w_2_transform_w[:3, -1] = -t
-            temp = nerf_w_2_transform_w @ c2w 
-            angle = np.linspace(0, 360, 60)[i]
-            circular_pose = pose_spherical(0.0, 0.0, angle, 0.0).cpu().numpy() 
-            pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ np.linalg.inv(circular_pose) @ temp
-            # pose = np.linalg.inv(canonical_pose_4) @ np.linalg.inv(circular_pose) @ temp
-            pose[:3, -1] += t
+        # if transform:
+            # t = np.array([0.0, -0.5, 4.5]).T
+            # nerf_w_2_transform_w = np.identity(4)
+            # nerf_w_2_transform_w[:3, -1] = -t
+            # temp = nerf_w_2_transform_w @ c2w 
+            # angle = np.linspace(0, 360, 360)[i]
+            # # circular_pose = pose_spherical(0.0, 0.0, angle, 0.0).cpu().numpy() 
+            # circular_pose = pose_spherical(0.0, angle, 0.0, c2w).cpu().numpy() 
+            # pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ np.linalg.inv(circular_pose) @ temp
+            # # pose = np.linalg.inv(canonical_pose_4) @ np.linalg.inv(circular_pose) @ temp
+            # pose[:3, -1] += t
 
         imgs[i] = {
             "camera_id": image_id,
@@ -232,10 +233,42 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, i
     
     all_poses = np.array(all_poses)
     # all_poses = all_poses[[all_ids.index("left_4"), all_ids.index("left_5"), all_ids.index("left_6"), all_ids.index("front_4"), all_ids.index("front_5"), all_ids.index("front_6"), all_ids.index("right_4"), all_ids.index("right_5"), all_ids.index("right_6"), all_ids.index("back_4"), all_ids.index("back_5"), all_ids.index("back_6")], :, :]
-    all_poses = np.array(all_poses)[:1, :, :]
+    # all_poses = np.array(all_poses)[:35, :, :]
     all_imgs = np.array(all_imgs).astype(np.float32)
     all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
+
+    c2w = all_poses[all_ids.index("left_5"), :, :]
+    input_pose_4 = np.identity(4)
+    canonical_pose_4 = np.identity(4)
+    transform = False
+    canonical_poses = []
+    num_poses = 300
+
+    if input_pose is not None:
+        input_pose_4[:3, :3] = input_pose
+        transform = True
+
+    if canonical_pose is not None:
+        canonical_pose_4[:3, :3] = canonical_pose
+        transform = True
+
+    if transform:
+        t = np.array([0.0, -0.5, 4.5]).T
+        nerf_w_2_transform_w = np.identity(4)
+        nerf_w_2_transform_w[:3, -1] = -t
+        temp = nerf_w_2_transform_w @ c2w 
+
+        for i in range(num_poses):
+            angle = np.linspace(0, 360, num_poses)[i]
+            # circular_pose = pose_spherical(0.0, 0.0, angle, 0.0).cpu().numpy() 
+            circular_pose = pose_spherical(0.0, angle, 0.0, c2w).cpu().numpy() 
+            pose = np.linalg.inv(canonical_pose_4 @ input_pose_4) @ np.linalg.inv(circular_pose) @ temp
+            # pose = np.linalg.inv(canonical_pose_4) @ np.linalg.inv(circular_pose) @ temp
+            pose[:3, -1] += t
+            canonical_poses.append(pose)
+
+        all_poses = np.array(canonical_poses)
 
     i_val = []
     sides = ["back", "bottom", "front", "left", "right", "top"]
