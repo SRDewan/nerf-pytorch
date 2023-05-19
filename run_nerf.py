@@ -1698,14 +1698,15 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
-            empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
-            empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
-            images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
+            images = images[..., :3]
+            # empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
+            # empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
+            # images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
 
-            for i in range(len(images)):
-                save_path = "original_renderings/%s/%s/%d.png" % (args.category, args.model_name, i)
-                if not os.path.exists(os.path.dirname(save_path)):
-                    os.makedirs(os.path.dirname(save_path))
+            # for i in range(len(images)):
+                # save_path = "original_renderings/%s/%s/%d.png" % (args.category, args.model_name, i)
+                # if not os.path.exists(os.path.dirname(save_path)):
+                    # os.makedirs(os.path.dirname(save_path))
                 # imageio.imwrite(save_path, images[i])
 
             # images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])

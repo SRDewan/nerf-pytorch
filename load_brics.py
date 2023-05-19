@@ -258,6 +258,7 @@ def load_brics_data(basedir, res=1, skip=1, max_ind=54, canonical_pose = None, i
         nerf_w_2_transform_w = np.identity(4)
         nerf_w_2_transform_w[:3, -1] = -t
         temp = nerf_w_2_transform_w @ c2w 
+        # temp = c2w @ nerf_w_2_transform_w
 
         for i in range(num_poses):
             angle = np.linspace(0, 360, num_poses)[i]
