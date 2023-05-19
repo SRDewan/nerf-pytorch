@@ -1,5 +1,5 @@
-expname = brics_watercraft_04530566_92fec5e70e9c972130327a4f3a474384
-basedir = ./brics_logs_rotated/watercraft
+expname = brics_clean_code_test
+basedir = ./brics_logs/clean_code
 datadir = /home/ubuntu/efs/rotated_renderings/shapenet/watercraft/04530566_92fec5e70e9c972130327a4f3a474384/
 dataset_type = brics 
 testskip = 1
@@ -20,10 +20,10 @@ lrate = 0.0001
 
 precrop_iters = 480
 precrop_frac = 0.5
-iters = 48000
+iters = 9600
 
 res = 1
-wand_en = False
+wand_en = True
 i_print = 48
 i_img = 48
-i_weights = 2400
+i_weights = 960
