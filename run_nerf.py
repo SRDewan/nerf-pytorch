@@ -16,11 +16,8 @@ from run_nerf_helpers import *
 from load_llff import load_llff_data
 from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
-from load_local_blender import load_local_blender_data
 from load_LINEMOD import load_LINEMOD_data
-from load_draco import load_draco_data
 from load_brics import load_brics_data
-from load_brown_real import load_brown_real_data
 
 import open3d as o3d
 import wandb
@@ -41,7 +38,6 @@ device_idx = 0
 gc.collect()
 torch.cuda.empty_cache()
 device = torch.device("cuda:%d" % (device_idx) if torch.cuda.is_available() else "cpu")
-# np.random.seed(0)
 DEBUG = False
 
 
@@ -76,32 +72,6 @@ def load_h5(path):
     x = fx_input['data'][:]
     fx_input.close()
     return x
-
-
-def labels_to_pallette(mask, tensor = False):
-    classes = {
-            0: [255, 255, 255], # White
-            1: [255, 0, 0],     # red
-            2: [0, 255, 0],     # green
-            3: [0, 0, 255],     # blue
-            4: [255, 0, 255],   # pink
-            5: [255, 255, 0],   # yellow
-            6: [153, 51, 102]   # magenta
-            }
-    
-    result = np.zeros((mask.shape[0], mask.shape[1], 3))
-    
-    if tensor:
-        mask = mask.detach().cpu().numpy()
-    
-    for key, value in classes.items():
-        result[np.where(mask == key)] = value
-    
-    if tensor:
-        result = Image.fromarray(result.astype('uint8'), 'RGB')
-        result = T.ToTensor()(result)
-    
-    return result
 
 
 def batchify(fn, chunk):
@@ -221,7 +191,6 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
         all_ret['sample_points'] = torch.tensor([]).to(device)
         all_ret['depth_map'] = gt_depth
         all_ret['points'] = points
-        all_ret['semantic_map'] = torch.tensor([]).to(device)
 
     else:
         all_ret = batchify_rays(rays, chunk, **kwargs)
@@ -308,7 +277,6 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
     weights = []
     sigmas = []
     sample_points = []
-    semantics = []
 
     t = time.time()
     for i, c2w in enumerate(tqdm(render_poses)):
@@ -335,8 +303,6 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
 
             Ks.append(extras['K'])
             c2ws.append(extras['c2w'].detach().cpu().numpy())
-        if render_kwargs['semantic_en']:
-            semantics.append(extras['semantic_map'].detach().cpu().numpy())
 
         if i==0:
             print(rgb.shape, disp.shape)
@@ -430,11 +396,6 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
                 K_filename = os.path.join(savedir, 'K_{:03d}.npy'.format(i))
                 np.save(K_filename, K8)
 
-            if render_kwargs['semantic_en']:
-                semantic8 = semantics[-1]
-                semantic_filename = os.path.join(savedir, 'semantic_{:03d}.npy'.format(i))
-                np.save(semantic_filename, semantic8)
-
         del rgb, disp, acc, extras
         torch.cuda.empty_cache()
 
@@ -459,16 +420,14 @@ def create_nerf(args):
     skips = [4]
     model = NeRF(D=args.netdepth, W=args.netwidth,
                  input_ch=input_ch, output_ch=output_ch, skips=skips,
-                 input_ch_views=input_ch_views, use_viewdirs=args.use_viewdirs,
-                 semantic_en=args.semantic_en, num_classes=args.num_classes).to(device)
+                 input_ch_views=input_ch_views, use_viewdirs=args.use_viewdirs).to(device)
     grad_vars = list(model.parameters())
 
     model_fine = None
     if args.N_importance > 0:
         model_fine = NeRF(D=args.netdepth_fine, W=args.netwidth_fine,
                           input_ch=input_ch, output_ch=output_ch, skips=skips,
-                          input_ch_views=input_ch_views, use_viewdirs=args.use_viewdirs,
-                          semantic_en=args.semantic_en, num_classes=args.num_classes).to(device)
+                          input_ch_views=input_ch_views, use_viewdirs=args.use_viewdirs).to(device)
         grad_vars += list(model_fine.parameters())
 
     network_query_fn = lambda inputs, viewdirs, network_fn : run_network(inputs, viewdirs, network_fn,
@@ -521,8 +480,6 @@ def create_nerf(args):
         'white_bkgd' : args.white_bkgd,
         'raw_noise_std' : args.raw_noise_std,
         'retdepth': True,
-        'semantic_en': args.semantic_en,
-        'num_classes': args.num_classes,
     }
 
     # NDC only good for LLFF-style forward facing data
@@ -537,10 +494,6 @@ def create_nerf(args):
     render_kwargs_test['retdepth'] = True
     render_kwargs_test['N_importance'] = args.N_importance // 2
     render_kwargs_test['N_samples'] = args.N_samples // 2
-    render_kwargs_test['N_single_obj_samples'] = args.N_single_obj_samples
-    render_kwargs_test['grad_en'] = args.grad_en
-    # render_kwargs_test['gt_register'] = args.gt_register
-    # render_kwargs_test['random_rot'] = args.random_rot
 
     return render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer
 
@@ -589,11 +542,6 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
     if white_bkgd:
         rgb_map = rgb_map + (1.-acc_map[...,None])
 
-    if raw.shape[-1] > 4:
-        semantic = raw[..., 4:]
-        semantic_map = torch.sum(weights[...,None] * semantic, -2)  # [N_rays, 3]
-        return rgb_map, disp_map, acc_map, weights, depth_map, sigma_map, semantic_map
-
     return rgb_map, disp_map, acc_map, weights, depth_map, sigma_map
 
 
@@ -605,9 +553,6 @@ def render_rays(ray_batch,
                 N_samples,
                 retraw=True,
                 retdepth=True,
-                semantic_en=False,
-                grad_en=False,
-                num_classes=2,
                 lindisp=False,
                 perturb=0.,
                 N_importance=0,
@@ -615,8 +560,7 @@ def render_rays(ray_batch,
                 white_bkgd=False,
                 raw_noise_std=0.,
                 verbose=False,
-                pytest=False,
-                N_single_obj_samples=32):
+                pytest=False):
     """Volumetric rendering.
     Args:
       ray_batch: array of shape [batch_size, ...]. All information necessary
@@ -684,62 +628,10 @@ def render_rays(ray_batch,
     viewdirs = viewdirs.to(device)
     pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals[...,:,None] # [N_rays, N_samples, 3]
 
-    # def sigma_fn(t_starts, t_ends, ray_indices):
-        # # import pdb
-        # # pdb.set_trace()
-        # t_origins = rays_o[ray_indices]  # (n_samples, 3)
-        # t_dirs = rays_d[ray_indices]  # (n_samples, 3)
-        # positions = t_origins + t_dirs * (t_starts + t_ends) / 2.0
-
-        # inputs_flat = torch.reshape(positions, [-1, positions.shape[-1]])
-        # embedded = embed_fn(inputs_flat)
-        # sigmas = network_fn.query_density(embedded)
-
-        # return sigmas  # (n_samples, 1)
-
-    # def rgb_sigma_fn(t_starts, t_ends, ray_indices):
-        # # import pdb
-        # # pdb.set_trace()
-        # t_origins = rays_o[ray_indices]  # (n_samples, 3)
-        # t_dirs = rays_d[ray_indices]  # (n_samples, 3)
-        # positions = t_origins + t_dirs * (t_starts + t_ends) / 2.0
-
-        # inputs_flat = torch.reshape(positions, [-1, positions.shape[-1]])
-        # embedded = embed_fn(inputs_flat)
-        # input_dirs = t_dirs[:,None].expand(positions.shape)
-        # input_dirs_flat = torch.reshape(input_dirs, [-1, input_dirs.shape[-1]])
-        # embedded_dirs = embeddirs_fn(input_dirs_flat)
-        # embedded = torch.cat([embedded, embedded_dirs], -1)
-
-        # raw = network_fn(embedded)
-        # rgbs = torch.sigmoid(raw[...,:3])  # [N_rays, N_samples, 3]
-        # sigmas = raw[..., 3]
-
-        # return rgbs, sigmas  # (n_samples, 3), (n_samples, 1)
-
-    # aabb = torch.Tensor([-4.5, -5.0, 0.0, 4.5, 4.0, 9.0])
-    # occupancy_grid = OccupancyGrid(
-        # roi_aabb=aabb,
-        # resolution=32,
-        # contraction_type=ContractionType.AABB,
-    # ).to(device)
-
-    # with torch.no_grad():
-        # import pdb
-        # pdb.set_trace()
-        # packed_info, t_starts, t_ends = nerfacc.ray_marching(
-            # rays_o[:64], rays_d[:64], sigma_fn=sigma_fn, near_plane=near[0], far_plane=far[0], grid=occupancy_grid
-            # )
-    # print("Done with nerfacc ray marching")
-
-    # color, opacity, depth = nerfacc.rendering(rgb_sigma_fn, packed_info, t_starts, t_ends)
 
 #     raw = run_network(pts)
     raw = network_query_fn(pts, viewdirs, network_fn)
-    if semantic_en:
-        rgb_map, disp_map, acc_map, weights, depth_map, sigma_map, semantic_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
-    else:
-        rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+    rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
     points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     if N_importance > 0:
@@ -757,11 +649,7 @@ def render_rays(ray_batch,
 #         raw = run_network(pts, fn=run_fn)
         raw = network_query_fn(pts, viewdirs, run_fn)
 
-        if semantic_en:
-            semantic_map_0 = semantic_map
-            rgb_map, disp_map, acc_map, weights, depth_map, sigma_map, semantic_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
-        else:
-            rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
+        rgb_map, disp_map, acc_map, weights, depth_map, sigma_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
         points = rays_o + depth_map.unsqueeze(1) * rays_d
 
     ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map}
@@ -773,8 +661,6 @@ def render_rays(ray_batch,
         ret['sample_points'] = pts
         ret['depth_map'] = depth_map
         ret['points'] = points
-    if semantic_en:
-        ret['semantic_map'] = semantic_map
 
     if N_importance > 0:
         ret['rgb0'] = rgb_map_0
@@ -789,8 +675,6 @@ def render_rays(ray_batch,
             ret['sigma0'] = sigma_map_0
             ret['depth0'] = depth_map_0
             ret['points0'] = points_0
-        if semantic_en:
-            ret['semantic0'] = semantic_map_0
 
     for k in ret:
         if (torch.isnan(ret[k]).any() or torch.isinf(ret[k]).any()) and DEBUG:
@@ -837,37 +721,16 @@ def config_parser():
                         help='do not reload weights from saved ckpt')
     parser.add_argument("--ft_path", type=str, default=None, 
                         help='specific weights npy file to reload for coarse network')
-    parser.add_argument("--semantic_en", action='store_true', 
-                        help='predict a semantic map in addition to regular NeRF outputs')
-    parser.add_argument("--num_classes", type=int, default=2, 
-                        help='number of semantic classes')
 
     # loss weights
     parser.add_argument("--loss_param", type=float, default=1,
                         help='exponential term parameter for depth weighting')
-    parser.add_argument("--rgb_wt", type=float, default=1,
-                        help='rgb loss weight')
-    parser.add_argument("--semantic_wt", type=float, default=0,
-                        help='semantic loss weight')
-    parser.add_argument("--rays_sparsity_wt", type=float, default=0,
-                        help='rays sparsity loss weight')
-    parser.add_argument("--rays_sparsity_scale", type=float, default=0,
-                        help='rays sparsity loss hyperparameter')
-    parser.add_argument("--semantic_rays_sparsity_wt", type=float, default=0,
-                        help='semantic rays sparsity loss weight')
-    parser.add_argument("--semantic_rays_sparsity_scale", type=float, default=0,
-                        help='semantic rays sparsity loss hyperparameter')
-
 
     # rendering options
     parser.add_argument("--N_samples", type=int, default=64, 
                         help='number of coarse samples per ray')
     parser.add_argument("--N_importance", type=int, default=0,
                         help='number of additional fine samples per ray')
-    parser.add_argument("--N_random", type=int, default=32, 
-                        help='number of random samples per dimension during sigma extraction')
-    parser.add_argument("--N_single_obj_samples", type=int, default=32, 
-                        help='number of samples for each object bounding box during sigma extraction')
     parser.add_argument("--near", type=float, default=0.,
                         help='closest point to sample during ray rendering')
     parser.add_argument("--far", type=float, default=1.,
@@ -895,14 +758,10 @@ def config_parser():
                         help='render the test set instead of render_poses path')
     parser.add_argument("--render_factor", type=int, default=0, 
                         help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
-    parser.add_argument("--gt_register", action='store_true', 
-                        help='groundtruth data registration')
     parser.add_argument("--canonical_path", type=str, default=None, 
                         help='canonical data directory')
     parser.add_argument("--model_name", type=str, default="", 
                         help='model name')
-    parser.add_argument("--random_rot", action='store_true', 
-                        help='random rotation during sigma extraction and canonical rendering to simulate non_canonical field')
     parser.add_argument("--category", type=str, default="", 
                         help='category name')
 
@@ -916,7 +775,7 @@ def config_parser():
 
     # dataset options
     parser.add_argument("--dataset_type", type=str, default='blender', 
-                        help='options: llff / blender / local_blender / deepvoxels / draco / brics / brown_real')
+                        help='options: llff / blender / deepvoxels / brics')
     parser.add_argument("--testskip", type=int, default=8, 
                         help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
     parser.add_argument("--max_ind", type=int, default=100,
@@ -968,8 +827,6 @@ def config_parser():
                         help='frequency of testset saving')
     parser.add_argument("--i_video",   type=int, default=5000000, 
                         help='frequency of render_poses video saving')
-    parser.add_argument("--grad_en", action='store_true', 
-                        help='predict a gradient map in addition to regular NeRF outputs (only during testing/evaluation)')
 
     return parser
 
@@ -1000,18 +857,6 @@ def get_coords(minCoord, maxCoord, sampleCtr=128):
     return pcd, coords
 
 
-def get_random_coords(min_coord, max_coord, sample_ctr=128):
-    random_coords = set()
-    while len(random_coords) != sample_ctr:
-        x = np.random.uniform(min_coord[0], max_coord[0])
-        y = np.random.uniform(min_coord[1], max_coord[1])
-        z = np.random.uniform(min_coord[2], max_coord[2])
-        random_coords.add((x, y, z))
-
-    random_coords = np.array(list(random_coords))
-    return random_coords
-
-
 def cluster(sigmas, n_clusters=2, power=2.0, scale=1.0):
     print("Number of clusters = ", n_clusters)
     dim1, dim2, dim3 = sigmas.shape
@@ -1036,8 +881,6 @@ def cluster(sigmas, n_clusters=2, power=2.0, scale=1.0):
 
 
 def plot_sigmas(sigmas, save_path, plot_file_name):
-    return
-    print(plot_file_name)
     sigma_hist_vals = sigmas.astype(int).reshape(-1)
     plt.figure()
     plt.hist(sigma_hist_vals)
@@ -1053,119 +896,7 @@ def translate_obj(pts):
     return pts
 
 
-def probs_to_semantic_3d(probs, N):
-    semantic_pred = torch.nn.Softmax(dim=2)(probs).max(dim=2).indices
-    semantic_pred = semantic_pred.detach().cpu().numpy().reshape((N, N, N))
-    return semantic_pred
-
-
-def extract_info(raw, xyz, kwargs):
-    sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
-    plot_sigmas(sigma, save_path, 'original_sigmas.png')
-    sigmas_filename = os.path.join(save_path, 'original_sigmas_%d.npy' % (N))
-    np.save(sigmas_filename, sigma)
-
-    raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
-    z_vals = torch.Tensor(z).to(device).unsqueeze(0).repeat(N * N, 1)
-    dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
-    alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
-    weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1])
-    weights_local = weights.detach().cpu().numpy()
-    alpha = alpha.detach().cpu().numpy()
-
-    # plot_sigmas(alpha.reshape((N, N, N)), save_path, 'original_alphas.png')
-    # plot_sigmas(weights.reshape((N, N, N)), save_path, 'original_weights.png')
-    alphas_filename = os.path.join(save_path, 'original_alphas_%d.npy' % (N))
-    np.save(alphas_filename, alpha)
-    weights_filename = os.path.join(save_path, 'original_weights_%d.npy' % (N))
-    np.save(weights_filename, weights_local)
-
-    if kwargs['semantic_en']:
-        semantic_map = probs_to_semantic_3d(raw[..., 4:], N)
-        plot_sigmas(semantic_map, save_path, 'original_semantics.png')
-        semantics_filename = os.path.join(save_path, 'original_semantics_%d.npy' % (N))
-        np.save(semantics_filename, semantic_map)
-
-    pos_sigma_inds = np.where(sigma > 0)
-    pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
-    plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
-
-    thresh_sigma_inds = np.where(sigma > sigma_threshold)
-    thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
-    plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
-
-    clustered_sigma = cluster(sigma, 2)
-    plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
-
-
-def extract_single_obj_sigmas(samples, sigmas, semantic_map, sigma_threshold, class_id, N_samples, network_query_fn, network_fn, save_path):
-    class_inds = np.where(np.logical_and(
-        sigmas > sigma_threshold, 
-        semantic_map == class_id))
-
-    class_samples = samples[class_inds[0], class_inds[1], class_inds[2], :]
-    min_corner = np.array([np.min(class_samples[:, 0]), np.min(class_samples[:, 1]), np.min(class_samples[:, 2])])
-    max_corner = np.array([np.max(class_samples[:, 0]), np.max(class_samples[:, 1]), np.max(class_samples[:, 2])])
-    min_pt, max_pt = get_max_cube(min_corner, max_corner)
-    box_pcd, coords = get_coords(min_pt, max_pt, N_samples)
-    print(min_corner, max_corner, min_pt, max_pt)
-
-    xyz_ = torch.FloatTensor(coords.reshape(N_samples ** 2, N_samples, 3)).cuda()
-    dir_ = torch.zeros(N_samples ** 2, 3).cuda()
-    # sigma is independent of direction, so any value here will produce the same result
-
-    # predict sigma (occupancy) for each grid location
-    print('Predicting occupancy for object/class %d...' % (class_id))
-    xyz_.requires_grad = True
-    class_raw = network_query_fn(xyz_, dir_, network_fn)
-    # class_raw[..., 3] = 1. - torch.exp(-class_raw[..., 3])
-    grd = torch.ones(class_raw[..., 3].shape)
-    class_raw[..., 3].backward(gradient = grd)
-    gradients = xyz_.grad
-    gradients = gradients.detach().cpu().numpy().reshape((N_samples, N_samples, N_samples, 3))
-    xyz_.grad.zero_()
-    grads_filename = os.path.join(save_path, 'class%d_grads_%d.npy' % (class_id, N_samples))
-    np.save(grads_filename, gradients)
-
-    class_sigmas = class_raw[..., 3].detach().cpu().numpy().reshape((N_samples, N_samples, N_samples))
-    plot_sigmas(class_sigmas, save_path, 'class%d_sigmas.png' % (class_id))
-
-    sigmas_filename = os.path.join(save_path, 'class%d_sigmas_%d.npy' % (class_id, N_samples))
-    np.save(sigmas_filename, class_sigmas)
-
-    class_samples = coords.reshape((-1, 3))
-    class_samples = translate_obj(class_samples)
-    min_corner = np.array([np.min(class_samples[:, 0]), np.min(class_samples[:, 1]), np.min(class_samples[:, 2])])
-    max_corner = np.array([np.max(class_samples[:, 0]), np.max(class_samples[:, 1]), np.max(class_samples[:, 2])])
-    class_samples = class_samples / max_corner
-    class_samples = class_samples.reshape((N_samples, N_samples, N_samples, 3))
-    samples_filename = os.path.join(save_path, 'class%d_samples_%d.npy' % (class_id, N_samples))
-    np.save(samples_filename, class_samples)
-
-
-def get_xyz_grid(shape, rotation = None):
-    """
-    Returns an xyz grid in the normalized coordinates to perform density convolution
-
-    grid - B, C, H, W, D
-
-    out - B, C, H, W, 3
-    """
-
-    if rotation is not None:
-        theta = rotation
-    else:
-        theta = torch.eye(3).unsqueeze(0).repeat(shape[0], 1, 1)
-    t = torch.tensor([0, 0, 0]).unsqueeze(0).unsqueeze(2).repeat(theta.shape[0], 1, 1)
-    theta = torch.cat([theta, t], dim = -1)
-    out_grid = torch.nn.functional.affine_grid(theta, shape, align_corners = True)
-
-    return out_grid
-
-
-def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
-    print(save_path)
+def extract_sigmas(N_samples, x_range, y_range, z_range, sigma_threshold, network_query_fn, network_fn, min_b, max_b, save_path, kwargs, use_vertex_normal = True, near_t = 1.0):
     # define the dense grid for query
     N = N_samples
     xmin, xmax = x_range
@@ -1177,212 +908,40 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     y = np.linspace(ymin, ymax, N)
     z = np.linspace(zmin, zmax, N)
     samples = np.stack(np.meshgrid(x, y, z), -1)
-    if kwargs['random_rot']:
-        x_angle = np.random.uniform(0, 180)
-        y_angle = np.random.uniform(0, 180)
-        random_rot = R.from_euler('zyx', [0, y_angle, x_angle], degrees=True).as_matrix()
-        r = R.random()
-        random_rot = r.as_matrix()
-        print("Random Rotation = ", random_rot, "\nEuler = ", r.as_euler("zyx", degrees=True))
-
-        rot_grid = get_xyz_grid((1, 1, N, N, N), torch.from_numpy(random_rot).to(device).unsqueeze(0)).squeeze(0).detach().cpu().numpy()
-
-        # samples = samples.reshape(-1, 3) - center
-        # samples = random_rot @ samples.T
-        samples = rot_grid.reshape(-1, 3) * 2.5
-        samples = samples + center
-        samples = samples.reshape(N, N, N, 3)
-
-        min_corner = np.array([np.min(samples[..., 0]), np.min(samples[..., 1]), np.min(samples[..., 2])])
-        max_corner = np.array([np.max(samples[..., 0]), np.max(samples[..., 1]), np.max(samples[..., 2])])
-        print("Grid corners = ", min_corner, max_corner)
-
-        rots = []
-        parent = os.path.dirname(os.path.dirname(save_path))
-        rots_path = os.path.join(parent, "random_rots.npy")
-        if os.path.exists(rots_path):
-            rots = np.load(rots_path)
-            rots = list(rots)
-
-        rots.append(random_rot)
-        rots = np.array(rots)
-        np.save(rots_path, rots)
-
-    min_corner = np.array([np.min(samples[..., 0]), np.min(samples[..., 1]), np.min(samples[..., 2])])
-    max_corner = np.array([np.max(samples[..., 0]), np.max(samples[..., 1]), np.max(samples[..., 2])])
-    print("Grid corners just before = ", min_corner, max_corner)
 
     xyz_ = torch.FloatTensor(samples.reshape(N ** 2, N, 3)).cuda()
+    # sigma is independent of direction, so any value here will produce the same result 
     dir_ = torch.zeros(N ** 2, 3).cuda()
-           # sigma is independent of direction, so any value here will produce the same result 
     # predict sigma (occupancy) for each grid location
     print('Predicting occupancy ...')
-    if kwargs['grad_en']:
-        xyz_.requires_grad = True
+    with torch.no_grad():
         raw = network_query_fn(xyz_, dir_, network_fn)
-        grd = torch.ones(raw[..., 3].shape)
-        raw[..., 3].backward(gradient = grd)
-        gradients = xyz_.grad
-        gradients = gradients.detach().cpu().numpy().reshape((N_samples, N_samples, N_samples, 3))
-        xyz_.grad.zero_()
-
-        grads_filename = os.path.join(save_path, 'original_grads_%d.npy' % (N_samples))
-        np.save(grads_filename, gradients)
-
-    else:
-        with torch.no_grad():
-            raw = network_query_fn(xyz_, dir_, network_fn)
 
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
-    # plot_sigmas(sigma, save_path, 'original_sigmas.png')
-    # sigmas_filename = os.path.join(save_path, 'original_sigmas_%d.npy' % (N))
-    # np.save(sigmas_filename, sigma)
-
-    raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
-    z_vals = torch.Tensor(z).to(device).unsqueeze(0).repeat(N * N, 1)
-    dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
-    alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
-    weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1])
-    weights_local = weights.detach().cpu().numpy()
-    alpha = alpha.detach().cpu().numpy()
-
-    # plot_sigmas(alpha.reshape((N, N, N)), save_path, 'original_alphas.png')
-    # plot_sigmas(weights.reshape((N, N, N)), save_path, 'original_weights.png')
-    alphas_filename = os.path.join(save_path, 'original_alphas_%d.npy' % (N))
-    np.save(alphas_filename, alpha)
-    weights_filename = os.path.join(save_path, 'original_weights_%d.npy' % (N))
-    np.save(weights_filename, weights_local)
-
-    if kwargs['semantic_en']:
-        semantic_weights = 1. - torch.exp(-F.relu(raw[..., 3]))
-        # semantic_map = probs_to_semantic_3d(1. - torch.exp(-F.relu(raw[..., 4:])), N)
-        semantic_map = probs_to_semantic_3d(semantic_weights[..., None] * raw[..., 4:], N)
-        plot_sigmas(semantic_map, save_path, 'original_semantics.png')
-        semantics_filename = os.path.join(save_path, 'original_semantics_%d.npy' % (N))
-        np.save(semantics_filename, semantic_map)
-
-    pos_sigma_inds = np.where(sigma > 0)
-    pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
-    # plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
-
-    thresh_sigma_inds = np.where(sigma > sigma_threshold)
-    thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
-    # plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
-
     clustered_sigma = cluster(sigma, 2)
-    # plot_sigmas(clustered_sigma, save_path, 'clustered_sigmas.png')
-
-    if kwargs['semantic_en']:
-        classes = np.unique(semantic_map)
-        for i in range(len(classes)):
-            if not classes[i]:
-                continue
-
-            extract_single_obj_sigmas(samples, clustered_sigma, semantic_map, 0.5, classes[i], kwargs['N_single_obj_samples'], network_query_fn, network_fn, save_path) 
-
     # occ_inds = np.where(sigma > sigma_threshold)
     occ_inds = np.where(clustered_sigma > 0)
-    if kwargs['semantic_en']:
-        occ_inds = np.where(np.logical_and(sigma > sigma_threshold, semantic_map != 0))
-    # samples = np.stack(np.meshgrid(x, y, z), -1)
-    # if kwargs['random_rot']:
-        # samples = random_rot @ samples.reshape(-1, 3).T
-        # samples = samples.T.reshape(N, N, N, 3)
     occ_samples = samples[occ_inds[0], occ_inds[1], occ_inds[2], :]
-
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(samples.reshape(-1, 3))
-    # o3d.visualization.draw_geometries([pcd])
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(occ_samples.reshape(-1, 3))
-    o3d.visualization.draw_geometries([pcd])
 
     min_corner = np.array([np.min(occ_samples[..., 0]), np.min(occ_samples[..., 1]), np.min(occ_samples[..., 2])])
     max_corner = np.array([np.max(occ_samples[..., 0]), np.max(occ_samples[..., 1]), np.max(occ_samples[..., 2])])
     min_pt, max_pt = get_max_cube(min_corner, max_corner)
     box_pcd, coords = get_coords(min_pt, max_pt, N)
-    # box_pcd, coords = get_coords(min_corner, max_corner, N)
-    random_coords = get_random_coords(min_pt, max_pt, N_random ** 3)
-    print("Min and max: ", min_corner, max_corner, min_pt, max_pt)
 
     xyz_ = torch.FloatTensor(coords.reshape(N ** 2, N, 3)).cuda()
+    # sigma is independent of direction, so any value here will produce the same result
     dir_ = torch.zeros(N ** 2, 3).cuda()
-    random_xyz_ = torch.FloatTensor(random_coords.reshape(N_random ** 2, N_random, 3)).cuda()
-    random_dir_ = torch.zeros(N_random ** 2, 3).cuda()
-           # sigma is independent of direction, so any value here will produce the same result
-
     # predict sigma (occupancy) for each grid location
     print('Predicting occupancy for resized cube...')
-    if kwargs['grad_en']:
-        xyz_.requires_grad = True
+    with torch.no_grad():
         raw = network_query_fn(xyz_, dir_, network_fn)
-        grd = torch.ones(raw[..., 3].shape)
-        raw[..., 3].backward(gradient = grd)
-        gradients = xyz_.grad
-        gradients = gradients.detach().cpu().numpy().reshape((N_samples, N_samples, N_samples, 3))
-        xyz_.grad.zero_()
-
-        grads_filename = os.path.join(save_path, 'grads_%d.npy' % (N_samples))
-        np.save(grads_filename, gradients)
-
-        random_xyz_.requires_grad = True
-        random_raw = network_query_fn(random_xyz_, random_dir_, network_fn)
-        random_grd = torch.ones(random_raw[..., 3].shape)
-        random_raw[..., 3].backward(gradient = random_grd)
-        random_gradients = random_xyz_.grad
-        random_gradients = random_gradients.detach().cpu().numpy().reshape((N_random, N_random, N_random, 3))
-        random_xyz_.grad.zero_()
-
-        grads_filename = os.path.join(save_path, 'random_grads_%d.npy' % (N_random))
-        np.save(grads_filename, random_gradients)
-
-    else:
-        with torch.no_grad():
-            raw = network_query_fn(xyz_, dir_, network_fn)
-            random_raw = network_query_fn(random_xyz_, random_dir_, network_fn)
 
     # raw[..., 3] = 1. - torch.exp(-raw[..., 3] * 0.05)
     sigma = raw[..., 3].detach().cpu().numpy().reshape((N, N, N))
-    random_sigma = random_raw[..., 3].detach().cpu().numpy().reshape((N_random, N_random, N_random))
     # plot_sigmas(sigma, save_path, 'resampled_sigmas.png')
-
-    pos_sigma_inds = np.where(sigma > 0)
-    pos_sigma = sigma[pos_sigma_inds[0], pos_sigma_inds[1], pos_sigma_inds[2]]
-    # plot_sigmas(pos_sigma, save_path, 'resampled_sigmas_positive.png')
-
-    thresh_sigma_inds = np.where(sigma > sigma_threshold)
-    thresh_sigma = sigma[thresh_sigma_inds[0], thresh_sigma_inds[1], thresh_sigma_inds[2]]
-    # plot_sigmas(thresh_sigma, save_path, 'resampled_sigmas_thresh.png')
-
     sigmas_filename = os.path.join(save_path, 'sigmas_%d.npy' % (N))
     np.save(sigmas_filename, sigma)
-    random_sigmas_filename = os.path.join(save_path, 'random_sigmas_%d.npy' % (N_random))
-    np.save(random_sigmas_filename, random_sigma)
-
-    raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
-    z_vals = torch.Tensor(coords[..., 2]).to(device).reshape((N * N, N))
-    dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
-    alpha = raw2alpha(raw[...,3], dists)  # [N_rays, N_samples]
-    weights = (alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1])
-    weights_local = weights.detach().cpu().numpy().reshape((N, N, N))
-    alpha = alpha.detach().cpu().numpy().reshape((N, N, N))
-    # plot_sigmas(alpha, save_path, 'resized_alphas.png')
-    # plot_sigmas(weights, save_path, 'resized_weights.png')
-    alphas_filename = os.path.join(save_path, 'alphas_%d.npy' % (N))
-    np.save(alphas_filename, alpha)
-    weights_filename = os.path.join(save_path, 'weights_%d.npy' % (N))
-    np.save(weights_filename, weights_local)
-
-    if kwargs['semantic_en']:
-        semantic_weights = 1. - torch.exp(-F.relu(raw[..., 3]))
-        # semantic_map = probs_to_semantic_3d(1. - torch.exp(-F.relu(raw[..., 4:])), N)
-        semantic_map = probs_to_semantic_3d(semantic_weights[..., None] * raw[..., 4:], N)
-        plot_sigmas(semantic_map, save_path, 'semantics.png')
-        semantics_filename = os.path.join(save_path, 'semantics_%d.npy' % (N))
-        np.save(semantics_filename, semantic_map)
 
     samples = coords.reshape((-1, 3))
     samples = translate_obj(samples)
@@ -1401,168 +960,6 @@ def extract_sigmas(N_samples, N_random, x_range, y_range, z_range, sigma_thresho
     # pcd = o3d.geometry.PointCloud()
     # pcd.points = o3d.utility.Vector3dVector(occ_samples.reshape(-1, 3))
     # o3d.visualization.draw_geometries([pcd])
-
-    random_samples = random_coords.reshape((-1, 3))
-    random_samples = translate_obj(random_samples)
-    min_corner = np.array([np.min(random_samples[:, 0]), np.min(random_samples[:, 1]), np.min(random_samples[:, 2])])
-    max_corner = np.array([np.max(random_samples[:, 0]), np.max(random_samples[:, 1]), np.max(random_samples[:, 2])])
-    abs_max = np.max(np.vstack([np.abs(min_corner), np.abs(max_corner)]), axis=0)
-    samples = samples / abs_max
-    random_samples = random_samples.reshape((N_random, N_random, N_random, 3))
-    random_samples_filename = os.path.join(save_path, 'random_samples_%d.npy' % (N_random))
-    np.save(random_samples_filename, random_samples)
-
-    # perform marching cube algorithm to retrieve vertices and triangle mesh
-    # print('Extracting mesh ...')
-    # vertices, triangles = mcubes.marching_cubes(sigma, sigma_threshold)
-
-    # ##### Until mesh extraction here, it is the same as the original repo. ######
-
-    # vertices_ = (vertices/N).astype(np.float32)
-    # ## invert x and y coordinates (WHY? maybe because of the marching cubes algo)
-    # x_ = (max_pt[1]-min_pt[1]) * vertices_[:, 1] + min_pt[1]
-    # y_ = (max_pt[0]-min_pt[0]) * vertices_[:, 0] + min_pt[0]
-    # vertices_[:, 0] = x_
-    # vertices_[:, 1] = y_
-    # vertices_[:, 2] = (zmax-zmin) * vertices_[:, 2] + zmin
-    # vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-
-    # face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
-    # face['vertex_indices'] = triangles
-
-    # PlyData([PlyElement.describe(vertices_[:, 0], 'vertex'),
-             # PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_{sigma_threshold}_{N}.ply')
-
-    # # remove noise in the mesh by keeping only the biggest cluster
-    # print('Removing noise ...')
-    # mesh = o3d.io.read_triangle_mesh(f"{save_path}/mesh_{sigma_threshold}_{N}.ply")
-    # idxs, count, _ = mesh.cluster_connected_triangles()
-    # max_cluster_idx = np.argmax(count)
-    # triangles_to_remove = [i for i in range(len(face)) if idxs[i] != max_cluster_idx]
-    # mesh.remove_triangles_by_index(triangles_to_remove)
-    # mesh.remove_unreferenced_vertices()
-    # print(f'Mesh has {len(mesh.vertices):.2f} vertices and {len(mesh.triangles):.2f} faces.')
-    # print(f'Mesh has {len(mesh.vertices)/1e6:.2f} M vertices and {len(mesh.triangles)/1e6:.2f} M faces.')
-
-    # vertices_ = np.asarray(mesh.vertices).astype(np.float32)
-    # triangles = np.asarray(mesh.triangles)
-
-    # # perform color prediction
-    # # Step 0. define constants (image width, height and intrinsics)
-    # # W, H = args.img_wh
-    # # K = np.array([[dataset.focal, 0, W/2],
-                  # # [0, dataset.focal, H/2],
-                  # # [0,             0,   1]]).astype(np.float32)
-
-    # # Step 1. transform vertices into world coordinate
-    # N_vertices = len(vertices_)
-    # vertices_homo = np.concatenate([vertices_, np.ones((N_vertices, 1))], 1) # (N, 4)
-
-    # if use_vertex_normal: ## use normal vector method as suggested by the author.
-                               # ## see https://github.com/bmild/nerf/issues/44
-        # mesh.compute_vertex_normals()
-        # rays_d = torch.FloatTensor(np.asarray(mesh.vertex_normals))
-        # near = min_b * torch.ones_like(rays_d[:, :1])
-        # far = max_b * torch.ones_like(rays_d[:, :1])
-        # rays_o = torch.FloatTensor(vertices_) - rays_d * near * near_t
-        # rays = [rays_o, rays_d]
-
-        # rgb, disp, acc, extras = render(0, 0, [[]], chunk=1024*32, rays=rays,
-                                        # **kwargs)
-
-    # else: ## use my color average method. see README_mesh.md
-        # ## buffers to store the final averaged color
-        # non_occluded_sum = np.zeros((N_vertices, 1))
-        # v_color_sum = np.zeros((N_vertices, 3))
-
-        # # Step 2. project the vertices onto each training image to infer the color
-        # print('Fusing colors ...')
-        # for idx in tqdm(range(len(dataset.image_paths))):
-            # ## read image of this pose
-            # image = Image.open(dataset.image_paths[idx]).convert('RGB')
-            # image = image.resize(tuple(args.img_wh), Image.LANCZOS)
-            # image = np.array(image)
-
-            # ## read the camera to world relative pose
-            # P_c2w = np.concatenate([dataset.poses[idx], np.array([0, 0, 0, 1]).reshape(1, 4)], 0)
-            # P_w2c = np.linalg.inv(P_c2w)[:3] # (3, 4)
-            # ## project vertices from world coordinate to camera coordinate
-            # vertices_cam = (P_w2c @ vertices_homo.T) # (3, N) in "right up back"
-            # vertices_cam[1:] *= -1 # (3, N) in "right down forward"
-            # ## project vertices from camera coordinate to pixel coordinate
-            # vertices_image = (K @ vertices_cam).T # (N, 3)
-            # depth = vertices_image[:, -1:]+1e-5 # the depth of the vertices, used as far plane
-            # vertices_image = vertices_image[:, :2]/depth
-            # vertices_image = vertices_image.astype(np.float32)
-            # vertices_image[:, 0] = np.clip(vertices_image[:, 0], 0, W-1)
-            # vertices_image[:, 1] = np.clip(vertices_image[:, 1], 0, H-1)
-
-            # ## compute the color on these projected pixel coordinates
-            # ## using bilinear interpolation.
-            # ## NOTE: opencv's implementation has a size limit of 32768 pixels per side,
-            # ## so we split the input into chunks.
-            # colors = []
-            # remap_chunk = int(3e4)
-            # for i in range(0, N_vertices, remap_chunk):
-                # colors += [cv2.remap(image,
-                                    # vertices_image[i:i+remap_chunk, 0],
-                                    # vertices_image[i:i+remap_chunk, 1],
-                                    # interpolation=cv2.INTER_LINEAR)[:, 0]]
-            # colors = np.vstack(colors) # (N_vertices, 3)
-
-            # ## predict occlusion of each vertex
-            # ## we leverage the concept of NeRF by constructing rays coming out from the camera
-            # ## and hitting each vertex; by computing the accumulated opacity along this path,
-            # ## we can know if the vertex is occluded or not.
-            # ## for vertices that appear to be occluded from every input view, we make the
-            # ## assumption that its color is the same as its neighbors that are facing our side.
-            # ## (think of a surface with one side facing us: we assume the other side has the same color)
-
-            # ## ray's origin is camera origin
-            # rays_o = torch.FloatTensor(dataset.poses[idx][:, -1]).expand(N_vertices, 3)
-            # ## ray's direction is the vector pointing from camera origin to the vertices
-            # rays_d = torch.FloatTensor(vertices_) - rays_o # (N_vertices, 3)
-            # rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
-            # near = dataset.bounds.min() * torch.ones_like(rays_o[:, :1])
-            # ## the far plane is the depth of the vertices, since what we want is the accumulated
-            # ## opacity along the path from camera origin to the vertices
-            # far = torch.FloatTensor(depth) * torch.ones_like(rays_o[:, :1])
-            # results = f([nerf_fine], embeddings,
-                        # torch.cat([rays_o, rays_d, near, far], 1).cuda(),
-                        # args.N_samples,
-                        # 0,
-                        # args.chunk,
-                        # dataset.white_back)
-            # opacity = results['opacity_coarse'].detach().cpu().numpy()[:, np.newaxis] # (N_vertices, 1)
-            # opacity = np.nan_to_num(opacity, 1)
-
-            # non_occluded = np.ones_like(non_occluded_sum) * 0.1/depth # weight by inverse depth
-                                                                    # # near=more confident in color
-            # non_occluded += opacity < args.occ_threshold
-
-            # v_color_sum += colors * non_occluded
-            # non_occluded_sum += non_occluded
-
-    # # Step 3. combine the output and write to file
-    # if use_vertex_normal:
-        # v_colors = rgb.detach().cpu().numpy() * 255.0
-    # else: ## the combined color is the average color among all views
-        # v_colors = v_color_sum/non_occluded_sum
-    # v_colors = v_colors.astype(np.uint8)
-    # v_colors.dtype = [('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
-    # vertices_.dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-    # vertex_all = np.empty(N_vertices, vertices_.dtype.descr+v_colors.dtype.descr)
-    # for prop in vertices_.dtype.names:
-        # vertex_all[prop] = vertices_[prop][:, 0]
-    # for prop in v_colors.dtype.names:
-        # vertex_all[prop] = v_colors[prop][:, 0]
-
-    # face = np.empty(len(triangles), dtype=[('vertex_indices', 'i4', (3,))])
-    # face['vertex_indices'] = triangles
-
-    # PlyData([PlyElement.describe(vertex_all, 'vertex'),
-             # PlyElement.describe(face, 'face')]).write(f'{save_path}/mesh_colored_{sigma_threshold}_{N}.ply')
-
     print('Done!')
 
 
@@ -1611,25 +1008,6 @@ def train(args):
         else:
             images = images[...,:3]
 
-    elif args.dataset_type == 'local_blender':
-        images, poses, render_poses, meta, masks, gt_depths, i_split = load_local_blender_data(args.datadir, args.res, args.testskip, args.max_ind)
-        K = meta['intrinsic_mat']
-        hwf = [meta['height'], meta['width'], meta['fx']]
-        print('Loaded local blender', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
-        i_train, i_val, i_test = i_split
-
-        near = args.near
-        far = args.far
-
-        if args.white_bkgd:
-            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
-            # binary_masks = np.where(masks > 0, 1, 0)
-            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
-            # images = images[..., :3] * binary_masks + (1. - binary_masks)
-
-        else:
-            images = images[...,:3]
-
     elif args.dataset_type == 'LINEMOD':
         images, poses, render_poses, hwf, K, i_split, near, far = load_LINEMOD_data(args.datadir, args.half_res, args.testskip)
         print(f'Loaded LINEMOD, images shape: {images.shape}, hwf: {hwf}, K: {K}')
@@ -1653,21 +1031,6 @@ def train(args):
         hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
         near = hemi_R-1.
         far = hemi_R+1.
-
-    elif args.dataset_type == 'draco':
-        images, poses, render_poses, meta, gt_depths, masks, i_split = load_draco_data(args.datadir, args.res, args.testskip)
-        K = meta['intrinsic_mat']
-        hwf = [meta['height'], meta['width'], meta['fx']]
-        print('Loaded draco', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
-        i_train, i_val, i_test = i_split
-
-        near = args.near
-        far = args.far
-
-        if args.white_bkgd:
-            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
-        else:
-            images = images[...,:3]
 
     elif args.dataset_type == 'brics':
         canonical_pose = None
@@ -1711,38 +1074,6 @@ def train(args):
 
             # images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
 
-            # binary_masks = np.where(masks > 0, 1, 0)
-            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
-            # images = images[..., :3] * binary_masks + (1. - binary_masks)
-
-        else:
-            images = images[..., :3]
-
-    elif args.dataset_type == 'brown_real':
-        canonical_pose = None
-        if args.canonical_path is not None:
-            canonical_poses_path = os.path.join(args.canonical_path, "%s_canonical.h5" % (args.category)) 
-            canonical_models_path = os.path.join(args.canonical_path, "%s_files.txt" % (args.category))
-
-            canonical_poses = load_h5(canonical_poses_path)
-            canonical_models = load_models(canonical_models_path)
-
-            if args.model_name not in canonical_models:
-                return
-
-            canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
-
-        images, poses, render_poses, meta, i_split, hwf = load_brown_real_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose)
-        K = meta[0]
-        print('Loaded brics', len(images), poses.shape, K, hwf, args.datadir)
-        i_train, i_val, i_test = i_split
-
-        near = args.near
-        far = args.far
-
-        if args.white_bkgd:
-            images = images
-            images = images[..., :3]
             # binary_masks = np.where(masks > 0, 1, 0)
             # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
             # images = images[..., :3] * binary_masks + (1. - binary_masks)
@@ -1811,16 +1142,14 @@ def train(args):
         os.makedirs(testsavedir, exist_ok=True)
         print('test poses shape', render_poses.shape)
 
-        if args.gt_register:
-            rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, gt_depths=gt_depths)
-        elif args.canonical_path is not None:
+        if args.canonical_path is not None:
             with torch.no_grad():
                 rgbs, disps, depths = render_path(poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name, category=args.category)
         elif args.render_test:
             with torch.no_grad():
                 rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
         else:
-            extract_sigmas(args.N_samples, args.N_random, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
+            extract_sigmas(args.N_samples, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
 
         print('Done rendering', testsavedir)
         # imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
@@ -1898,12 +1227,6 @@ def train(args):
             target = images[img_i]
             target = torch.Tensor(target).to(device)
             pose = poses[img_i, :3,:4]
-            if args.dataset_type == "brown_real":
-                K = meta[img_i]
-                H, W = images[img_i].shape[:2]
-            if args.semantic_en:
-                target_sem = masks[img_i]
-                target_sem = torch.Tensor(target_sem).to(device)
 
             if not (i % len(i_train)) and (i / len(i_train) > 0):
                 print("Completed %d epochs!" % (i // len(i_train)))
@@ -1932,8 +1255,6 @@ def train(args):
                 batch_rays = torch.stack([rays_o, rays_d], 0)
                 # target_s = target.reshape((H * W, 3))
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
-                if args.semantic_en:
-                    target_sem_s = target_sem[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
         #####  Core optimization loop  #####
         rgb, disp, acc, extras = render(H, W, K, chunk=args.chunk, rays=batch_rays,
@@ -1944,45 +1265,18 @@ def train(args):
         depths = extras['depth_map'].detach().cpu()
         weights = torch.exp(-args.loss_param * depths).to(device)
         weights = weights.unsqueeze(-1).repeat(1, 3)
-        # img_loss = img2weighted_mse(rgb, target_s, weights)
         img_loss = img2mse(rgb, target_s)
         trans = extras['raw'][...,-1]
         loss = args.rgb_wt * img_loss
         psnr = mse2psnr(img_loss)
-        semantic_loss = 0
-        if args.semantic_en:
-            semantic_loss = mask2entropy(extras['semantic_map'], target_sem_s.type(torch.LongTensor).cuda())
-            loss = loss + args.semantic_wt * semantic_loss
-
-            # semantic_rays_sparsity_loss = sigmas2loss(extras['raw'][..., 4:], args.semantic_rays_sparsity_scale)
-            semantic_rays_sparsity_loss = semantics2var(extras['raw'][..., 4:])
-            loss = loss + args.semantic_rays_sparsity_wt * semantic_rays_sparsity_loss
-
-        rays_sparsity_loss = sigmas2loss(extras['raw'][..., 3], args.rays_sparsity_scale)
-        loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
-        # rays_sparsity_loss = sigmas2var(extras['raw'][..., 3], args.rays_sparsity_scale)
-        # loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
 
         if 'rgb0' in extras:
             depths = extras['depth0'].detach().cpu()
             weights = torch.exp(-args.loss_param * depths).to(device)
             weights = weights.unsqueeze(-1).repeat(1, 3)
-            # img_loss0 = img2weighted_mse(rgb, target_s, weights)
             img_loss0 = img2mse(extras['rgb0'], target_s)
             loss = loss + args.rgb_wt * img_loss0
             psnr0 = mse2psnr(img_loss0)
-
-            # rays_sparsity_loss0 = sigmas2loss(extras['raw0'][..., 3], args.rays_sparsity_scale)
-            # loss = loss + args.rays_sparsity_wt * rays_sparsity_loss0
-
-            semantic_loss0 = 0
-            if 'semantic0' in extras:
-                semantic_loss0 = mask2entropy(extras['semantic0'], target_sem_s.type(torch.LongTensor).cuda())
-                loss = loss + args.semantic_wt * semantic_loss0
-
-                # semantic_rays_sparsity_loss0 = sigmas2loss(extras['raw0'][..., 4:], args.semantic_rays_sparsity_scale)
-                semantic_rays_sparsity_loss0 = semantics2var(extras['raw0'][..., 4:])
-                loss = loss + args.semantic_rays_sparsity_wt * semantic_rays_sparsity_loss0
 
         loss.backward()
         optimizer.step()
@@ -2017,20 +1311,6 @@ def train(args):
                 "Train PSNR": psnr.item(),
                 "Rendered vs GT Train Image": [wandb.Image(rgb.detach().cpu().numpy().reshape((render_H, render_W, 3))), wandb.Image(target_s.detach().cpu().numpy().reshape((render_H, render_W, 3)))]
                 }
-
-            if args.semantic_en:
-                semantic_gt = target_sem_s.detach().cpu().numpy().reshape((render_H, render_W))
-                semantic_gt = labels_to_pallette(semantic_gt, tensor = False)
-
-                semantic_pred = torch.nn.Softmax(dim=1)(extras['semantic_map']).max(dim=1).indices
-                semantic_pred = semantic_pred.detach().cpu().numpy().reshape((render_H, render_W))
-                semantic_pred = labels_to_pallette(semantic_pred, tensor = False)
-
-                log_dict["Train RGB Loss"] = (img_loss + img_loss0).item()
-                log_dict["Train Semantic Loss"] = (semantic_loss + semantic_loss0).item()
-                log_dict["Train Rays Sparsity Loss"] = (rays_sparsity_loss).item()
-                log_dict["Train Semantic Rays Sparsity Loss"] = (semantic_rays_sparsity_loss).item()
-                log_dict["Rendered vs GT Train Semantic Mask"] = [wandb.Image(semantic_pred), wandb.Image(semantic_gt)]
 
             wandb.log(log_dict)
 
@@ -2078,12 +1358,6 @@ def train(args):
                 img_i=np.random.choice(i_val)
                 target = images[img_i]
                 pose = poses[img_i, :3,:4]
-                if args.dataset_type == "brown_real":
-                    K = meta[img_i]
-                    H, W = images[img_i].shape[:2]
-                if args.semantic_en:
-                    target_sem = masks[img_i]
-                    target_sem = torch.Tensor(target_sem).to(device)
 
                 with torch.no_grad():
                     rgb, disp, acc, extras = render(H, W, K, chunk=args.chunk, c2w=pose,
@@ -2092,38 +1366,12 @@ def train(args):
                 img_loss = img2mse(rgb, torch.tensor(target))
                 loss = args.rgb_wt * img_loss
                 psnr = mse2psnr(img_loss)
-                semantic_loss = 0
-                if args.semantic_en:
-                    semantic_loss = mask2entropy(extras['semantic_map'].reshape((H * W, -1)), target_sem.type(torch.LongTensor).cuda().reshape((H * W)))
-                    loss = loss + args.semantic_wt * semantic_loss
-
-                    # semantic_rays_sparsity_loss = sigmas2loss(extras['raw'][..., 4:], args.semantic_rays_sparsity_scale)
-                    semantic_rays_sparsity_loss = semantics2var(extras['raw'][..., 4:])
-                    loss = loss + args.semantic_rays_sparsity_wt * semantic_rays_sparsity_loss
-
-                rays_sparsity_loss = sigmas2loss(extras['raw'][..., 3], args.rays_sparsity_scale)
-                loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
-
-                # rays_sparsity_loss = sigmas2var(extras['raw'][..., 3], args.rays_sparsity_scale)
-                # loss = loss + args.rays_sparsity_wt * rays_sparsity_loss
 
                 if 'rgb0' in extras:
                     img_loss0 = img2mse(extras['rgb0'], torch.tensor(target))
                     loss = loss + args.rgb_wt * img_loss0
                     psnr0 = mse2psnr(img_loss0)
                     
-                    # rays_sparsity_loss0 = sigmas2loss(extras['raw0'][..., 3], args.rays_sparsity_scale)
-                    # loss = loss + args.rays_sparsity_wt * rays_sparsity_loss0
-
-                    semantic_loss0 = 0
-                    if args.semantic_en:
-                        semantic_loss0 = mask2entropy(extras['semantic0'].reshape((H * W, -1)), target_sem.type(torch.LongTensor).cuda().reshape((H * W)))
-                        loss = loss + args.semantic_wt * semantic_loss0
-
-                        # semantic_rays_sparsity_loss0 = sigmas2loss(extras['raw0'][..., 4:], args.semantic_rays_sparsity_scale)
-                        semantic_rays_sparsity_loss0 = semantics2var(extras['raw0'][..., 4:])
-                        loss = loss + args.semantic_rays_sparsity_wt * semantic_rays_sparsity_loss0
-
                 tqdm.write(f"[TRAIN] Iter: {i} Validation Loss: {loss.item()}  Validation PSNR: {psnr.item()}")
                 if args.wand_en:
                     log_dict = {
@@ -2134,20 +1382,6 @@ def train(args):
                         "Opacity": [wandb.Image(acc.detach().cpu().numpy())],
                         "Depth": [wandb.Image(extras['depth_map'].detach().cpu().numpy())],
                         }
-
-                    if args.semantic_en:
-                        semantic_gt = target_sem.detach().cpu().numpy().reshape((H, W))
-                        semantic_gt = labels_to_pallette(semantic_gt, tensor = False)
-
-                        semantic_pred = torch.nn.Softmax(dim=1)(extras['semantic_map'].reshape((H * W, -1))).max(dim=1).indices
-                        semantic_pred = semantic_pred.detach().cpu().numpy().reshape((H, W))
-                        semantic_pred = labels_to_pallette(semantic_pred, tensor = False)
-
-                        log_dict["Validation RGB Loss"] = (img_loss + img_loss0).item()
-                        log_dict["Validation Semantic Loss"] = (semantic_loss + semantic_loss0).item()
-                        log_dict["Validation Rays Sparsity Loss"] = (rays_sparsity_loss).item()
-                        log_dict["Validation Semantic Rays Sparsity Loss"] = (semantic_rays_sparsity_loss).item()
-                        log_dict["Rendered vs GT Semantic Mask"] = [wandb.Image(semantic_pred), wandb.Image(semantic_gt)]
 
                     wandb.log(log_dict)
 

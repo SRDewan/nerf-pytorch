@@ -1,6 +1,6 @@
-expname = brics_car_02958343_133b51a2dcecd83c7c3c6f82a395b347_vanilla
-basedir = ./brics_logs
-datadir = /home2/anshkhndelwal/brics-simulator/renderings/shapenet/car/02958343_133b51a2dcecd83c7c3c6f82a395b347_rotation1/
+expname = brics_watercraft_04530566_92fec5e70e9c972130327a4f3a474384
+basedir = ./brics_logs_rotated/watercraft
+datadir = /home/ubuntu/efs/rotated_renderings/shapenet/watercraft/04530566_92fec5e70e9c972130327a4f3a474384/
 dataset_type = brics 
 testskip = 1
 max_ind = 54
@@ -17,22 +17,13 @@ near = 0.1
 far = 20.0
 N_rand = 1024
 lrate = 0.0001
-semantic_en = False
-num_classes = 2
-
-rgb_wt = 1
-semantic_wt = 0
-rays_sparsity_wt = 0.0 # 0.001
-rays_sparsity_scale = 0.05
-semantic_rays_sparsity_wt = 0.0 # 0.001
-semantic_rays_sparsity_scale = 0.05
 
 precrop_iters = 480
 precrop_frac = 0.5
-iters = 9600
+iters = 48000
 
 res = 1
 wand_en = False
 i_print = 48
 i_img = 48
-i_weights = 960
+i_weights = 2400
