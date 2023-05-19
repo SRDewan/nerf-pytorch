@@ -1158,7 +1158,7 @@ def train(args):
         weights = weights.unsqueeze(-1).repeat(1, 3)
         img_loss = img2mse(rgb, target_s)
         trans = extras['raw'][...,-1]
-        loss = args.rgb_wt * img_loss
+        loss = img_loss
         psnr = mse2psnr(img_loss)
 
         if 'rgb0' in extras:
@@ -1166,7 +1166,7 @@ def train(args):
             weights = torch.exp(-args.loss_param * depths).to(device)
             weights = weights.unsqueeze(-1).repeat(1, 3)
             img_loss0 = img2mse(extras['rgb0'], target_s)
-            loss = loss + args.rgb_wt * img_loss0
+            loss = loss + img_loss0
             psnr0 = mse2psnr(img_loss0)
 
         loss.backward()
@@ -1255,12 +1255,12 @@ def train(args):
                                                         **render_kwargs_test)
 
                 img_loss = img2mse(rgb, torch.tensor(target))
-                loss = args.rgb_wt * img_loss
+                loss = img_loss
                 psnr = mse2psnr(img_loss)
 
                 if 'rgb0' in extras:
                     img_loss0 = img2mse(extras['rgb0'], torch.tensor(target))
-                    loss = loss + args.rgb_wt * img_loss0
+                    loss = loss + img_loss0
                     psnr0 = mse2psnr(img_loss0)
                     
                 tqdm.write(f"[TRAIN] Iter: {i} Validation Loss: {loss.item()}  Validation PSNR: {psnr.item()}")

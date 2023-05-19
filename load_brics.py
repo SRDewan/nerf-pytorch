@@ -145,7 +145,6 @@ def load_brics_data(basedir, res = 1, skip = 1, max_ind = 54, canonical_pose = N
     
     all_poses = np.array(all_poses)
     all_imgs = np.array(all_imgs).astype(np.float32)
-    all_seg_masks = np.array(all_seg_masks).astype(np.float32)
     all_depths = np.array(all_depths).astype(np.float32)
 
     c2w = all_poses[all_ids.index("left_5"), :, :]
