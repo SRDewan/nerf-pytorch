@@ -206,58 +206,6 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
     return ret_list + [ret_dict]
 
 
-def get_box(K, pose, min_corner=[-1, -1, -1], max_corner=[1, 1, 1], scale=1.0):
-    corners = np.array([
-        [min_corner[0], min_corner[1], min_corner[2]],
-        [min_corner[0], min_corner[1], max_corner[2]],
-        [min_corner[0], max_corner[1], min_corner[2]],
-        [min_corner[0], max_corner[1], max_corner[2]],
-        [max_corner[0], min_corner[1], min_corner[2]],
-        [max_corner[0], min_corner[1], max_corner[2]],
-        [max_corner[0], max_corner[1], min_corner[2]],
-        [max_corner[0], max_corner[1], max_corner[2]]
-        ]) * scale
-    connects = [[0, 1], [0, 2], [0, 4], [6, 7], [6, 4], [6, 2], [5, 7], [5, 4], [5, 1], [3, 1], [3, 2], [3, 7]]
-
-    t = np.array([0.0, -0.5, 4.5]).reshape(1, 3)
-    t = np.repeat(t, 8, 0)
-    # import pdb
-    # pdb.set_trace()
-    corners = corners + t
-    corners = np.hstack([corners, np.ones(8).reshape(8, 1)])
-    cam_pts = pose @ corners.T
-    cam_pts = cam_pts / cam_pts[3, :]
-
-    K[1][1] *= -1
-    K[2][2] *= -1
-    img_pts = K @ cam_pts[:3, :]
-    img_pts = img_pts / img_pts[2, :]
-
-    return img_pts[:2, :].T, connects
-
-def get_axes(K, pose, scale=1.0):
-    corners = np.array([
-        [0, 0, 0],
-        [0, 0, 1],
-        [0, 1, 0],
-        [1, 0, 0],
-        ]) * scale
-    connects = [[0, 1], [0, 2], [0, 3]]
-
-    t = np.array([0.0, -0.5, 4.5]).reshape(1, 3)
-    t = np.repeat(t, 4, 0)
-    corners = corners + t
-    corners = np.hstack([corners, np.ones(4).reshape(4, 1)])
-    cam_pts = pose @ corners.T
-    cam_pts = cam_pts / cam_pts[3, :]
-
-    K[1][1] *= -1
-    K[2][2] *= -1
-    img_pts = K @ cam_pts[:3, :]
-    img_pts = img_pts / img_pts[2, :]
-
-    return img_pts[:2, :].T, connects
-
 def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0, gt_depths=None, model=None, category=""):
 
     H, W, focal = hwf
@@ -325,51 +273,10 @@ def render_path(render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedi
             min_corner = np.array([np.min(occ_samples[:, 0]), np.min(occ_samples[:, 1]), np.min(occ_samples[:, 2])])
             max_corner = np.array([np.max(occ_samples[:, 0]), np.max(occ_samples[:, 1]), np.max(occ_samples[:, 2])])
 
-            # img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1.5, -2, 3], [1.5, 1, 6])
-            img_box, connects = get_box(np.copy(K), np.linalg.inv(c2w), [-1, -1, -1], [1, 1, 1], 1.5)
-            # plt.scatter(img_box[:, 0], img_box[:, 1], marker="x", color="red", s=200)
-            img_axes, axes_connects = get_axes(np.copy(K), np.linalg.inv(c2w), 1.5)
-
-            plt.figure()
-            plt.imshow(rgb8)
-            for j in range(len(connects)):
-                # if j >= 2:
-                    # break
-                pt1 = img_box[connects[j][0], :]
-                pt2 = img_box[connects[j][1], :]
-                x = [pt1[0], pt2[0]]
-                y = [pt1[1], pt2[1]]
-                # plt.plot(x, y, color="red", clip_on=True, linewidth=3)
-
-                # print(connects[j], pt1, pt2)
-                # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
-                # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
-                # plt.show()
-
-            color_order = ["red", "green", "blue"]
-            for j in range(len(axes_connects)):
-                pt1 = img_axes[axes_connects[j][0], :]
-                pt2 = img_axes[axes_connects[j][1], :]
-                x = [pt1[0], pt2[0]]
-                y = [pt1[1], pt2[1]]
-                # import pdb
-                # pdb.set_trace()
-                # plt.arrow(pt1[0], pt1[1], pt2[0] - pt1[0], pt2[1] - pt1[1], width=10, ec=color_order[i])
-                # plt.plot(x, y, color="red", clip_on=True, linewidth=3)
-
-                # print(connects[i], pt1, pt2)
-                # plt.scatter(pt1[0], pt1[1], marker="x", color="red", s=200)
-                # plt.scatter(pt2[0], pt2[1], marker="x", color="blue", s=200)
-                # plt.show()
-
             can_save_path = "canonical_renderings/%s/%s_%d.png" % (category, model, i)
             if not os.path.exists(os.path.dirname(can_save_path)):
                 os.makedirs(os.path.dirname(can_save_path))
 
-            # plt.savefig(can_save_path)
-            # plt.show()
-            # if not os.path.exists(os.path.dirname(can_save_path)):
-                # os.makedirs(os.path.dirname(can_save_path))
             imageio.imwrite(can_save_path, rgb8)
 
             if render_kwargs['retdepth']:
@@ -760,10 +667,14 @@ def config_parser():
                         help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
     parser.add_argument("--canonical_path", type=str, default=None, 
                         help='canonical data directory')
+    parser.add_argument("--num_render_poses", type=int, default=300, 
+                        help='number of poses to render from')
     parser.add_argument("--model_name", type=str, default="", 
                         help='model name')
     parser.add_argument("--category", type=str, default="", 
                         help='category name')
+    parser.add_argument("--gen_sigmas", action='store_true', 
+                        help='extract the sigmas, i.e., the density field for the model')
 
     # training options
     parser.add_argument("--precrop_iters", type=int, default=0,
@@ -848,9 +759,6 @@ def get_coords(minCoord, maxCoord, sampleCtr=128):
     ydists = np.linspace(minCoord[1], maxCoord[1], sampleCtr)
     zdists = np.linspace(minCoord[2], maxCoord[2], sampleCtr)
 
-    # xs, ys, zs = np.meshgrid(xdists, ydists, zdists)
-    # xs, ys, zs = xs.reshape((-1, 1)), ys.reshape((-1, 1)), zs.reshape((-1, 1))
-    # coords = np.hstack([xs, ys, zs])
     coords = np.stack(np.meshgrid(xdists, ydists, zdists, indexing='ij'), axis=-1).astype(np.float32)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(coords.reshape((-1, 3)))
@@ -1035,6 +943,7 @@ def train(args):
     elif args.dataset_type == 'brics':
         canonical_pose = None
         input_pose = None
+
         if args.canonical_path is not None:
             input_poses_path = os.path.join(args.canonical_path, "%s_input_rot.h5" % (args.category)) 
             canonical_poses_path = os.path.join(args.canonical_path, "%s_canonical.h5" % (args.category)) 
@@ -1051,7 +960,7 @@ def train(args):
             input_pose = input_poses[canonical_models.index(args.model_name)]
             canonical_pose = canonical_poses[canonical_models.index(args.model_name)]
 
-        images, poses, render_poses, meta, masks, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose, input_pose)
+        images, poses, render_poses, meta, gt_depths, i_split = load_brics_data(args.datadir, args.res, args.testskip, args.max_ind, canonical_pose, input_pose, args.num_render_poses)
         K = meta['intrinsic_mat']
         hwf = [meta['height'], meta['width'], meta['fx']]
         print('Loaded brics', images.shape, poses.shape, render_poses.shape, K, hwf, args.datadir)
@@ -1061,23 +970,7 @@ def train(args):
         far = args.far
 
         if args.white_bkgd:
-            images = images[..., :3]
-            # empty_scene_path = "/home2/jayant.panwar/brics-simulator/renderings/empty"
-            # empty_images, empty_poses, empty_render_poses, empty_meta, empty_masks, empty_gt_depths, empty_i_split = load_brics_data(empty_scene_path, args.res, args.testskip, args.max_ind, canonical_pose)
-            # images = np.where(empty_images - images < 0.005, 1, images)[..., :3]
-
-            # for i in range(len(images)):
-                # save_path = "original_renderings/%s/%s/%d.png" % (args.category, args.model_name, i)
-                # if not os.path.exists(os.path.dirname(save_path)):
-                    # os.makedirs(os.path.dirname(save_path))
-                # imageio.imwrite(save_path, images[i])
-
-            # images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
-
-            # binary_masks = np.where(masks > 0, 1, 0)
-            # binary_masks = np.repeat(binary_masks[..., :, :, np.newaxis], 3, axis=3)
-            # images = images[..., :3] * binary_masks + (1. - binary_masks)
-
+            images = images[..., :3] * images[..., -1:] + (1. - images[..., -1:])
         else:
             images = images[..., :3]
 
@@ -1148,12 +1041,10 @@ def train(args):
         elif args.render_test:
             with torch.no_grad():
                 rgbs, disps, depths = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor, model=args.model_name)
-        else:
+        elif args.gen_sigmas:
             extract_sigmas(args.N_samples, args.x_range, args.y_range, args.z_range, args.sigma_threshold, render_kwargs_train['network_query_fn'], render_kwargs_train['network_fn'], near, far, testsavedir, render_kwargs_test)
 
         print('Done rendering', testsavedir)
-        # imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
-
         return
 
     if args.wand_en:
@@ -1437,8 +1328,7 @@ if __name__=='__main__':
 
     parser = config_parser()
     args = parser.parse_args()
-    sel = [
-    ]
+    sel = []
 
     if args.multi_scene and args.render_only:
         for dir_name in sorted(os.listdir(args.root_dir)):
@@ -1448,12 +1338,11 @@ if __name__=='__main__':
             # if args.model_name not in sel:
                 # continue
             print("Processing ", args.model_name)
-            # if args.canonical_path is None:
-                # args.datadir = "/home2/jayant.panwar/brics-simulator/renderings/shapenet/%s/%s/" % (category_name, model_name)
             args.ft_path = os.path.join(args.root_dir, dir_name, f"{args.iters:06d}.tar")
             if not os.path.exists(args.ft_path):
-                print("Skipping %s!" % (dir_name))
+                print("Skipping %s as no saved model found!" % (args.model_name))
                 continue
+
             train(args)
 
     else:
